@@ -6,14 +6,25 @@ The outer repository follows the validated plan in `docs/plan/20260426-live-ai-t
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [1.0.0] - 2026-04-26
+
+First proof-gated release for the local-first Live AI Terrarium v1 Milestone 1 contract.
+
 ### Added
 
-- Outer repository scaffolding for the Live AI Terrarium v1 proof-loop release path.
-- Baseline ignore and attributes policy for runtime state, snapshots, exports, mirrors, backups, and local development artifacts.
-
-## [1.0.0] - Planned
-
-Reserved for the first proof-gated release once the validated plan is complete.
+- Frozen v1 spec pack, control-state design docs, tag strategy, and outer-repository release discipline.
+- Python package scaffold, canonical IDs and records, hardened runtime profile, command catalog, and host-controlled storage paths.
+- Executable sandbox boundary and append-only export contract.
+- Shared command dispatcher, approval flow, append-only audit ledger, in-memory orchestrator runtime, and host model gateway.
+- Deterministic evaluator gates and evidence-first recovery controller.
+- Run-start reproducibility manifests, brokered full-log capture, and cycle-to-audit linkage for proof consumers.
+- Shared read models for run summary, cycle detail, audit state, and recovery state.
+- API, CLI/TUI, and Streamlit adapters over the same shared command and read paths.
+- Wave 8 proof harness covering ten stable cycles, rollback evidence, and cross-surface parity.
+- Streamlit preview harness plus browser validation evidence for proof-critical dashboard views.
+- Long-lived runtime, operator, and architecture docs aligned to the implemented system.
 
 ### Release Gate
 
@@ -22,3 +33,11 @@ Reserved for the first proof-gated release once the validated plan is complete.
 - Evidence-preserving rollback from the last accepted stable state.
 - No unrecoverable failures in the proof loop.
 - Reproducibility and observability artifacts packaged before the final annotated `v1.0.0` tag.
+
+### Evidence
+
+- `docs/milestones/m1-proof-checklist.md`
+- `docs/releases/v1.0.0.md`
+- `docs/reviews/proof-clearance-status.yaml`
+- `docs/test-evidence/browser-dashboard-validation.md`
+- `docs/test-evidence/browser-dashboard-visual-baseline.md`
