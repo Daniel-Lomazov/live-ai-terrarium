@@ -1,0 +1,2026 @@
+plan_id: 20260426-live-ai-terrarium-v1
+objective: >-
+  Build a local-first v1.0 Live AI Terrarium / Glass-Box project from scratch in
+  c:/Users/lomaz/live-ai-terrarium using the completed questionnaire as the source
+  of truth, with one outer local git repository on main, one Docker container per
+  Glass-Box, one shared backend for API plus CLI/TUI plus Streamlit, deterministic
+  gate-first evaluation, ten stable cycles, rollback, and full observability plus
+  reproducibility.
+created_at: 2026-04-26T00:00:00Z
+created_by: GitHub Copilot GPT-5.4
+status: pending
+research_confidence: high
+sources:
+  - AGENTS.md
+  - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md
+  - docs/v1-architecture-brief.md
+  - docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+  - docs/plan/20260426-live-ai-terrarium-v1/research_findings_data_logging_snapshot_evaluator.yaml
+  - docs/plan/20260426-live-ai-terrarium-v1/research_findings_repository_workflow_release_discipline.yaml
+  - docs/plan/20260426-live-ai-terrarium-v1/research_findings_sandbox_runtime_security.yaml
+human_companion: docs/plan/20260426-live-ai-terrarium-v1/plan.md
+critical_path:
+  - LAT-001
+  - LAT-005
+  - LAT-023
+  - LAT-011
+  - LAT-025
+  - LAT-024
+  - LAT-014
+  - LAT-017
+  - LAT-021
+  - LAT-022
+critical_path_notes: >-
+  LAT-025 is now the dedicated owner for run-start reproducibility manifests,
+  brokered append-only full-log capture, and cycle-to-audit linkage. LAT-024
+  and LAT-019 both consume that evidence before LAT-017 can execute the proof
+  harness, while LAT-013 remains a co-critical recovery gate for reversibility
+  and rollback evidence.
+assumptions:
+  - A single Python codebase is the v1 baseline, using FastAPI, Pydantic, Typer, Rich, Streamlit, pytest, and Docker CLI.
+  - Durable host-controlled state lives under %LOCALAPPDATA%/LiveAITerrarium/state and backups live under %LOCALAPPDATA%/LiveAITerrarium/backups.
+  - Audit events use a SHA-256 hash chain scoped per run.
+  - The no-regression baseline is the last accepted stable cycle for the active run.
+  - Per-cycle file snapshots happen every cycle; full workspace snapshots happen every 5 cycles and on every stop condition.
+  - Milestone tags use the namespace milestone/v1-* and the final release tag is the annotated tag v1.0.0.
+  - The only sanctioned sandbox egress path is /workspace/.gb/outbox; no other sandbox-host shared mount or direct host path is available in v1.
+  - Repeated crashes default to 3 consecutive crash-terminated cycles per run; log silence defaults to 60 seconds without brokered log or heartbeat activity during an active cycle.
+  - Resource overuse defaults to container hard-limit breach or sustained CPU or memory usage above 90 percent of the configured budget for 30 seconds.
+  - Branch-and-continue creates a sandbox-inner git branch plus external mirror evidence; the outer repository remains single-branch main except for annotated milestone and release tags.
+  - Selected v1 parity actions are observe, mode switch, pause, resume, branch, clone, reset, and rollback across API, CLI/TUI, and dashboard surfaces.
+plan_metrics:
+  wave_1_task_count: 4
+  total_dependencies: 82
+  risk_score: high
+tldr: |
+  Wave 1 freezes the questionnaire-backed v1 contract, operator surface design, and outer-repo release discipline.
+  Wave 2 bootstraps the Python package, canonical contracts, hardened runtime baseline, and host-controlled storage paths.
+  Wave 3 implements the executable sandbox boundary plus append-only export contract and the canonical command path.
+  Wave 4 adds append-only audit plus approval flow, host-side orchestration and gateway control, and deterministic evaluator gates.
+  Wave 5 adds evidence-first recovery plus a dedicated run-evidence slice for run-start reproducibility manifests, immutable build identity, brokered full-log capture, and cycle-to-audit linkage.
+  Wave 6 builds the shared read model and runs the focused boundary and security review over the new evidence.
+  Wave 7 delivers API, CLI/TUI, and Streamlit adapters with parity for observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+  Wave 8 executes the ten-cycle proof harness, browser validation, and documentation refresh.
+  Wave 9 packages the proof bundle and creates milestone tags on main.
+  Wave 10 creates the final annotated v1.0.0 tag only after the proof checklist is complete.
+open_questions: []
+gaps: []
+pre_mortem:
+  overall_risk_level: high
+  critical_failure_modes:
+    - scenario: "API, CLI/TUI, and Streamlit drift into different command semantics or lifecycle coverage and stop sharing one backend behavior."
+      likelihood: medium
+      impact: critical
+      mitigation: "Freeze canonical command envelopes first, keep adapters thin, and block surface work until dispatcher plus audit contracts exist."
+    - scenario: "Sandbox runtime leaks host access, secrets, or network reach through Docker defaults or an unsafe command interface."
+      likelihood: medium
+      impact: critical
+      mitigation: "Pin one hardened runtime profile, enforce one controlled export directory with no other shared mounts, and require the focused boundary checklist before proof work."
+    - scenario: "Canonical cycle records, audit events, reproducibility manifests, snapshots, and full-log bundles are incomplete or inconsistent, making rollback and reproducibility non-credible."
+      likelihood: medium
+      impact: critical
+      mitigation: "Implement filesystem-first contracts early, require run-start reproducibility manifests plus full-log emission in proof tests, and make release proof depend on rollback, branch, and audit-linkage evidence."
+    - scenario: "Observation-only default and explicit mode switching are implemented inconsistently across surfaces, weakening auditability and operator safety."
+      likelihood: medium
+      impact: high
+      mitigation: "Freeze one auditable mode-switch command path, project mode state through one read model, and require parity checks across API, CLI/TUI, and dashboard."
+    - scenario: "The no-regression baseline or gate ordering is ambiguous, causing false accepts or false rollbacks across the ten-cycle proof."
+      likelihood: medium
+      impact: high
+      mitigation: "Freeze the baseline in the spec pack, encode it in contract tests, and keep Pareto outputs informational until gates pass."
+    - scenario: "The outer repository reaches v1.0.0 without disciplined main-only history, milestone tags, or a clean proof checklist."
+      likelihood: low
+      impact: high
+      mitigation: "Initialize git in wave 1, document tag policy immediately, and gate the final tag behind the milestone checklist and release note bundle."
+  assumptions:
+    - A single local admin can approve sensitive actions as long as approvals are audit-logged.
+    - The local machine can run Docker Desktop for Windows and a Python environment suitable for Streamlit and pytest.
+    - The first v1 proof uses simple test fixtures rather than broad real-world workloads.
+    - The sandbox-inner git mirror remains logically separate from the outer repo history at every stage.
+implementation_specification:
+  code_structure: >-
+    Build one Python package rooted at src/live_ai_terrarium with logical modules for
+    contracts, storage, control, audit, query, orchestrator, model gateway, inner agent,
+    evaluation, recovery, boundary or export helpers, and adapters. Keep runtime and security
+    assets under infra/. Keep docs under docs/ for specs, runtime contracts, operator
+    runbooks, milestones, releases, reviews, and browser evidence. Use tests/ for contract,
+    sandbox-boundary, query, adapter, recovery, agent, and end-to-end proof coverage.
+  affected_areas:
+    - .gitignore
+    - .gitattributes
+    - CHANGELOG.md
+    - pyproject.toml
+    - infra/docker/glassbox/
+    - infra/security/
+    - src/live_ai_terrarium/contracts/
+    - src/live_ai_terrarium/storage/
+    - src/live_ai_terrarium/control/
+    - src/live_ai_terrarium/audit/
+    - src/live_ai_terrarium/query/
+    - src/live_ai_terrarium/orchestrator/
+    - src/live_ai_terrarium/gateway/
+    - src/live_ai_terrarium/agent/
+    - src/live_ai_terrarium/evaluation/
+    - src/live_ai_terrarium/recovery/
+    - src/live_ai_terrarium/adapters/api/
+    - src/live_ai_terrarium/adapters/cli/
+    - src/live_ai_terrarium/adapters/dashboard/
+    - tests/
+    - tests/query/
+    - tests/sandbox_contract/
+    - docs/specs/
+    - docs/design/
+    - docs/runtime/
+    - docs/operators/
+    - docs/milestones/
+    - docs/releases/
+    - docs/reviews/
+    - docs/test-evidence/
+  component_details:
+    - component: Outer repository discipline
+      responsibility: "Own git initialization, ignore policy, changelog discipline, milestone tags, and final v1.0.0 tagging on the single outer main branch."
+      interfaces:
+        - "git init -b main"
+        - "Annotated milestone tags under milestone/v1-*"
+        - "Annotated release tag v1.0.0"
+      dependencies:
+        - component: Foundation spec pack
+          relationship: "Consumes v1 release and evidence policy"
+      integration_points:
+        - ".gitignore"
+        - "CHANGELOG.md"
+        - "docs/releases/"
+        - "docs/milestones/"
+    - component: Contracts and storage
+      responsibility: "Define readable IDs plus UUIDs, cycle and incident records, annotation slots, and filesystem-first host storage paths."
+      interfaces:
+        - "Pydantic models for IDs and records"
+        - "Path helper API for records, exports, snapshots, mirrors, incidents, and backups"
+      dependencies:
+        - component: Foundation spec pack
+          relationship: "Consumes assumptions for ID grammar, state roots, and snapshot cadence"
+      integration_points:
+        - "src/live_ai_terrarium/contracts/"
+        - "src/live_ai_terrarium/storage/"
+        - "%LOCALAPPDATA%/LiveAITerrarium/state"
+    - component: Shared control plane
+      responsibility: "Normalize commands from every operator surface, enforce approval policy, and emit append-only audit events."
+      interfaces:
+        - "Canonical command envelope"
+        - "Dispatcher service API"
+        - "Approval service API"
+        - "Audit ledger writer"
+      dependencies:
+        - component: Contracts and storage
+          relationship: "Uses IDs and durable path helpers"
+      integration_points:
+        - "src/live_ai_terrarium/control/"
+        - "src/live_ai_terrarium/audit/"
+        - "adapters/api"
+        - "adapters/cli"
+        - "adapters/dashboard"
+    - component: Sandbox runtime and model gateway
+      responsibility: "Run the single Glass-Box container, enforce the executable boundary/export contract, keep containment host-side, and mediate all model access outside the sandbox."
+      interfaces:
+        - "Docker runtime profile"
+        - "Boundary and export broker API"
+        - "Host-side gateway service API"
+        - "Orchestrator lifecycle API"
+      dependencies:
+        - component: Runtime security scaffold
+          relationship: "Consumes Dockerfile, runtime policy, and command allowlist"
+        - component: Shared control plane
+          relationship: "Exposes lifecycle actions to the dispatcher"
+      integration_points:
+        - "infra/docker/glassbox/"
+        - "infra/security/"
+        - "src/live_ai_terrarium/orchestrator/"
+        - "src/live_ai_terrarium/gateway/"
+        - "tests/sandbox_contract/"
+    - component: Inner agent and evaluator
+      responsibility: "Execute allowlisted tool work inside the sandbox, produce cycle mutations, apply deterministic gates, and track stable-cycle progress."
+      interfaces:
+        - "Inner-agent runner API"
+        - "Gate evaluation API"
+        - "Regression checker API"
+      dependencies:
+        - component: Sandbox runtime and model gateway
+          relationship: "Uses runtime hooks and host-side model mediation"
+        - component: Contracts and storage
+          relationship: "Persists cycle records against canonical schemas"
+      integration_points:
+        - "src/live_ai_terrarium/agent/"
+        - "src/live_ai_terrarium/evaluation/"
+        - "tests/agent/"
+    - component: Recovery and reproducibility
+      responsibility: "Persist snapshots, git mirrors, incident bundles, and manual restore operations as part of the product contract."
+      interfaces:
+        - "Snapshot service API"
+        - "Recovery controller API"
+        - "Incident writer API"
+      dependencies:
+        - component: Sandbox runtime and model gateway
+          relationship: "Uses pause, kill, clone, reset, and restore hooks"
+        - component: Contracts and storage
+          relationship: "Writes recovery artifacts into host-controlled paths"
+      integration_points:
+        - "src/live_ai_terrarium/recovery/"
+        - "tests/recovery/"
+        - "%LOCALAPPDATA%/LiveAITerrarium/state"
+    - component: Shared query and read model
+      responsibility: "Derive summaries, cycle drill-down, audit timelines, and incident or reversibility views from canonical records and host-controlled evidence so every surface reads the same path."
+      interfaces:
+        - "Query service API"
+        - "Read-model projection API"
+      dependencies:
+        - component: Contracts and storage
+          relationship: "Uses canonical records and durable path helpers"
+        - component: Shared control plane
+          relationship: "Reads audit receipts and approval states"
+        - component: Recovery and reproducibility
+          relationship: "Indexes incidents, snapshots, rollback, and branch evidence"
+      integration_points:
+        - "src/live_ai_terrarium/query/"
+        - "tests/query/"
+    - component: Operator surfaces
+      responsibility: "Expose one API, one gb CLI plus Rich TUI, and one Streamlit dashboard over the same backend and records."
+      interfaces:
+        - "Local FastAPI endpoints"
+        - "gb commands"
+        - "Rich TUI views"
+        - "Streamlit dashboard pages"
+      dependencies:
+        - component: Shared control plane
+          relationship: "Calls the dispatcher and query services"
+        - component: Inner agent and evaluator
+          relationship: "Reads cycle decisions and summaries"
+        - component: Recovery and reproducibility
+          relationship: "Shows incident, rollback, snapshot, and mirror evidence"
+      integration_points:
+        - "src/live_ai_terrarium/adapters/api/"
+        - "src/live_ai_terrarium/adapters/cli/"
+        - "src/live_ai_terrarium/adapters/dashboard/"
+    - component: Release proof
+      responsibility: "Collect ten-cycle evidence, canonical record inventories, preserved logs, reversibility proof, reviewer sign-off, milestone tags, release notes, and the final v1.0.0 tag."
+      interfaces:
+        - "pytest proof suite"
+        - "Browser validation report"
+        - "Boundary checklist review report"
+        - "Milestone and release docs"
+      dependencies:
+        - component: Operator surfaces
+          relationship: "Consumes runnable surfaces and proof data"
+        - component: Outer repository discipline
+          relationship: "Publishes tags and release notes on main"
+      integration_points:
+        - "tests/e2e/"
+        - "docs/test-evidence/"
+        - "docs/reviews/"
+        - "docs/milestones/"
+        - "docs/releases/"
+contracts:
+  - from_task: LAT-001
+    to_task: LAT-023
+    interface: "Frozen v1 boundary/export contract, stop-condition thresholds, and outer-versus-inner branch semantics."
+    format: "Markdown spec pack under docs/specs/*.md"
+  - from_task: LAT-001
+    to_task: LAT-006
+    interface: "Frozen run-start reproducibility manifest contract covering task identity, seed, limits, model version, required outer repo commit SHA and container image digest, optional release tag and human-readable image name supplemental labels that cannot satisfy the requirement on their own, runtime-profile hash or embedded snapshot, command-catalog hash or embedded snapshot, and proof-bundle inclusion rules."
+    format: "Markdown spec pack under docs/specs/*.md"
+  - from_task: LAT-001
+    to_task: LAT-009
+    interface: "Observation-only default, executable allow-or-deny command contract for observe, mode switch, pause, resume, branch, clone, reset, and rollback, and parity requirements across all operator surfaces."
+    format: "Markdown spec pack under docs/specs/*.md"
+  - from_task: LAT-001
+    to_task: LAT-005
+    interface: "Frozen v1 defaults for tech stack, ID grammar, state roots, snapshot cadence, and regression baseline."
+    format: "Markdown spec pack under docs/specs/*.md"
+  - from_task: LAT-002
+    to_task: LAT-014
+    interface: "Operator action matrix, observation-state UX, approval receipts, and lifecycle parity expectations for the API surface."
+    format: "Markdown design docs under docs/design/*.md"
+  - from_task: LAT-002
+    to_task: LAT-015
+    interface: "Operator action matrix, observation-state UX, approval receipts, and lifecycle parity expectations for the CLI/TUI surface."
+    format: "Markdown design docs under docs/design/*.md"
+  - from_task: LAT-002
+    to_task: LAT-016
+    interface: "Dashboard information architecture, control states, action matrix, and proof-critical drill-down expectations."
+    format: "Markdown design docs under docs/design/*.md"
+  - from_task: LAT-004
+    to_task: LAT-021
+    interface: "Milestone namespace, release namespace, and branch-semantics proof rules."
+    format: "Markdown release discipline docs under docs/releases/ and docs/milestones/"
+  - from_task: LAT-006
+    to_task: LAT-009
+    interface: "Canonical IDs, cycle records, annotations, and incident records."
+    format: "Python contract models plus pytest contract coverage"
+  - from_task: LAT-006
+    to_task: LAT-025
+    interface: "Run envelope schema plus cycle, audit, and full-log linkage fields used to persist reproducibility manifests and proof-bundle indexes."
+    format: "Python contract models plus pytest contract coverage"
+  - from_task: LAT-008
+    to_task: LAT-023
+    interface: "Host-controlled path helper API for records, exports, snapshots, mirrors, incidents, and backups."
+    format: "Python storage helper functions"
+  - from_task: LAT-007
+    to_task: LAT-023
+    interface: "Pinned container build, runtime hardening policy, and allowed mount plus export rules."
+    format: "Dockerfile plus YAML runtime and command specs"
+  - from_task: LAT-023
+    to_task: LAT-011
+    interface: "Executable boundary/export contract with one outbox path, blocked direct host access, and append-only egress receipts."
+    format: "Python boundary and export service API plus sandbox contract tests"
+  - from_task: LAT-023
+    to_task: LAT-012
+    interface: "Sandbox tool and filesystem boundary rules consumed by the runner and stop-condition detectors."
+    format: "Python boundary policy API"
+  - from_task: LAT-009
+    to_task: LAT-014
+    interface: "Command normalization and dispatch service shared by all operator surfaces."
+    format: "Python service API"
+  - from_task: LAT-011
+    to_task: LAT-012
+    interface: "Runtime lifecycle hooks and gateway request contract used by the inner-agent runner."
+    format: "Python orchestrator plus gateway service API"
+  - from_task: LAT-010
+    to_task: LAT-024
+    interface: "Audit ledger, approval receipts, and command status timeline available for read-side projections."
+    format: "Python approval and ledger API"
+  - from_task: LAT-010
+    to_task: LAT-025
+    interface: "Append-only audit ledger receipts and command lifecycle events linked to run and cycle IDs."
+    format: "Python approval and ledger API"
+  - from_task: LAT-012
+    to_task: LAT-024
+    interface: "Stable-cycle status, gate results, and stop-condition outcomes for canonical read models."
+    format: "Python evaluation results API"
+  - from_task: LAT-011
+    to_task: LAT-025
+    interface: "Host-side broker hooks for run-scoped log capture and lifecycle-linked evidence writes."
+    format: "Python orchestrator plus gateway service API"
+  - from_task: LAT-013
+    to_task: LAT-024
+    interface: "Snapshot indexes, rollback references, branch evidence, and restore artifacts required for reversibility views."
+    format: "Python recovery APIs plus host-controlled evidence files"
+  - from_task: LAT-013
+    to_task: LAT-017
+    interface: "Pause-snapshot ordering, branch evidence, rollback proof, and restore artifacts used by the milestone harness."
+    format: "Python recovery APIs plus host-controlled evidence files"
+  - from_task: LAT-024
+    to_task: LAT-014
+    interface: "Shared query service for run summaries, cycle detail, audit receipts, and incident or reversibility views."
+    format: "Python query and read-model API"
+  - from_task: LAT-024
+    to_task: LAT-015
+    interface: "Shared query service for CLI and TUI views over canonical records and audit state."
+    format: "Python query and read-model API"
+  - from_task: LAT-024
+    to_task: LAT-016
+    interface: "Shared query service for Streamlit drill-down and proof dashboards."
+    format: "Python query and read-model API"
+  - from_task: LAT-025
+    to_task: LAT-024
+    interface: "Run-start reproducibility manifest, log bundle index, cycle-to-audit linkage map, and proof-bundle references for shared read models."
+    format: "Python storage APIs plus host-controlled evidence files"
+  - from_task: LAT-025
+    to_task: LAT-019
+    interface: "Reviewable run evidence bundle covering observation-mode state, mode-switch events, reproducibility manifest, and append-only full-log linkage."
+    format: "Python storage APIs plus host-controlled evidence files"
+  - from_task: LAT-025
+    to_task: LAT-017
+    interface: "Proof-bundle manifest linking immutable build identity, including the required outer repo commit SHA and container image digest, required run configuration, full logs, audit receipts, and cycle evidence."
+    format: "Python storage APIs plus host-controlled evidence files"
+  - from_task: LAT-019
+    to_task: LAT-017
+    interface: "Focused boundary checklist plus machine-readable proof clearance status declaring blocker or cleared."
+    format: "Markdown review artifacts plus YAML status file under docs/reviews/"
+  - from_task: LAT-017
+    to_task: LAT-021
+    interface: "Ten-cycle proof evidence bundle with canonical record inventory, preserved full logs, and reversibility artifacts."
+    format: "pytest e2e artifacts plus markdown-ready summary outputs"
+observation_mode_contract:
+  default_mode: observation-only
+  allowed_without_mode_switch_receipt:
+    - observe
+  mode_switch_rule: "mode switch is allowed only when the approval policy permits it and the dispatcher emits an active mode-switch receipt bound to the same run or instance scope and current mode context."
+  denied_without_mode_switch_receipt:
+    - pause
+    - resume
+    - branch
+    - clone
+    - reset
+    - rollback
+  emergency_path_rule: "Emergency handling is denied through the standard action list and may flow only through an explicit emergency command path if that path is separately defined, policy-gated, and audited."
+operator_action_matrix:
+  - action: observe
+    backend_owner: LAT-024
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    audit_expectation: "Read-only views preserve observation-only defaults and require no approval receipts."
+    parity_verification: LAT-017
+  - action: mode switch
+    backend_owner: LAT-009
+    lifecycle_owner: LAT-011
+    audit_owner: LAT-010
+    evidence_owner: LAT-025
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    parity_verification: LAT-017
+  - action: pause
+    backend_owner: LAT-009
+    lifecycle_owner: LAT-011
+    audit_owner: LAT-010
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    parity_verification: LAT-017
+  - action: resume
+    backend_owner: LAT-009
+    lifecycle_owner: LAT-011
+    audit_owner: LAT-010
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    parity_verification: LAT-017
+  - action: branch
+    backend_owner: LAT-009
+    lifecycle_owner: LAT-011
+    recovery_owner: LAT-013
+    audit_owner: LAT-010
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    parity_verification: LAT-017
+  - action: clone
+    backend_owner: LAT-009
+    lifecycle_owner: LAT-011
+    recovery_owner: LAT-013
+    audit_owner: LAT-010
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    parity_verification: LAT-017
+  - action: reset
+    backend_owner: LAT-009
+    lifecycle_owner: LAT-011
+    recovery_owner: LAT-013
+    audit_owner: LAT-010
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    parity_verification: LAT-017
+  - action: rollback
+    backend_owner: LAT-009
+    lifecycle_owner: LAT-011
+    recovery_owner: LAT-013
+    audit_owner: LAT-010
+    api_surface: LAT-014
+    cli_tui_surface: LAT-015
+    dashboard_surface: LAT-016
+    parity_verification: LAT-017
+tasks:
+  - id: LAT-001
+    title: Freeze v1 foundation spec pack
+    description: |
+      Write the implementation-facing contracts that turn the questionnaire and research into
+      one deterministic v1 baseline. Lock the Python-first stack, readable ID grammar,
+      host state roots, SHA-256 audit chain choice, controlled export directory, stop-condition
+      thresholds, snapshot cadence, no-regression baseline, and outer-versus-inner branch
+      semantics so no downstream task needs human interpretation.
+    wave: 1
+    agent: gem-documentation-writer
+    prototype: false
+    covers:
+      - architecture
+      - constraints
+      - docs
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies: []
+    conflicts_with: []
+    context_files:
+      - path: .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md
+        description: Source-of-truth v1 decisions.
+      - path: AGENTS.md
+        description: Repository mission, role boundaries, and git discipline.
+      - path: docs/v1-architecture-brief.md
+        description: Derived architecture and acceptance contract.
+    target_files:
+      - docs/specs/v1-system-contract.md
+      - docs/specs/v1-data-contract.md
+      - docs/specs/v1-ops-contract.md
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 220
+    focus_area: Foundation contracts
+    expected_outputs:
+      - Frozen v1 assumptions for IDs, state roots, audit chain, controlled export directory, stop-condition thresholds, snapshot cadence, and regression baseline.
+      - One spec pack all later tasks can consume without reinterpretation.
+    verification:
+      - Cross-check every normative statement against the questionnaire, AGENTS.md, the architecture brief, and the four research reports.
+      - Confirm the spec pack names one concrete default for repeated-crash, log-silence, and resource-overuse thresholds plus one branch-and-continue rule.
+      - Confirm the spec pack publishes one canonical operator action list: observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+      - Confirm the spec pack defines observation-only as an executable allow-or-deny contract and freezes immutable build-identity fields for the run-start reproducibility manifest, including required outer repo commit SHA and container image digest with release tags and human-readable image names treated only as supplemental labels.
+    acceptance_criteria:
+      - The spec pack defines one readable ID grammar, one UUID storage rule, and one run-start reproducibility manifest contract with immutable build identity rooted in required outer repo commit SHA and container image digest fields, with release tags and human-readable image names limited to supplemental labels.
+      - The spec pack defines one audit hash strategy, one controlled export directory, one snapshot cadence, and one no-regression baseline.
+      - The spec pack defines observation-only as an executable allow-or-deny contract: observe allowed by default; mode switch allowed only when approval policy permits and yields an active mode-switch receipt bound to the same run or instance scope and current mode context; pause, resume, branch, clone, reset, and rollback denied until such a receipt exists; a historical receipt alone does not unlock control actions; emergency handling flows only through an explicit emergency command path if present.
+      - The spec pack defines one compact action matrix covering observe, mode switch, pause, resume, branch, clone, reset, and rollback across API, CLI/TUI, and dashboard.
+      - The spec pack defines explicit stop-condition thresholds and clarifies outer-repo main versus sandbox-inner branch-and-continue semantics.
+      - No spec statement contradicts the questionnaire or the architecture brief.
+    failure_modes:
+      - scenario: Core contracts remain ambiguous and later tasks fork incompatible assumptions.
+        likelihood: medium
+        impact: high
+        mitigation: Choose one default for every open gap and mark it as an explicit v1 assumption.
+    task_type: documentation
+    audience: developers
+    coverage_matrix:
+      - Questionnaire chapters 1-15
+      - AGENTS.md repository mission and git discipline
+      - docs/v1-architecture-brief.md acceptance criteria
+
+  - id: LAT-002
+    title: Design operator surface information architecture
+    description: |
+      Define the Streamlit and Rich TUI operator experience around the shared backend.
+      The design must keep observation-first views, explicit control states, approval flows,
+      per-cycle drill-down, and evidence visibility aligned across dashboard and terminal.
+    wave: 1
+    agent: gem-designer
+    prototype: false
+    covers:
+      - dashboard
+      - tui
+      - ux
+    priority: medium
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies: []
+    conflicts_with: []
+    context_files:
+      - path: .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md
+        description: Presentation layer, control, and observability requirements.
+      - path: docs/v1-architecture-brief.md
+        description: Shared control API and per-cycle drill-down contract.
+    target_files:
+      - docs/design/v1-streamlit-surfaces.md
+      - docs/design/v1-tui-flows.md
+      - docs/design/v1-control-states.md
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 180
+    focus_area: Operator UX contract
+    expected_outputs:
+      - Streamlit page map with diff, score, decision, audit, and rollback views.
+      - Rich TUI flow spec matching the same command and data model.
+    verification:
+      - Confirm every control in the design maps back to the shared backend command path rather than a surface-specific action.
+      - Confirm every proof-critical signal from the questionnaire appears in both dashboard and terminal flows.
+    acceptance_criteria:
+      - The design includes observation-only, approval-required, and recovery states.
+      - The design includes one compact operator-action matrix covering observe, mode switch, pause, resume, branch, clone, reset, and rollback across API, CLI/TUI, and dashboard.
+      - The design includes per-cycle diff, score, decision, and incident drill-down.
+      - The design does not introduce a second state model or transport-specific business logic.
+    failure_modes:
+      - scenario: The dashboard and TUI diverge on control semantics or omit proof-critical evidence.
+        likelihood: medium
+        impact: medium
+        mitigation: Design around the shared command envelope and canonical record views only.
+
+  - id: LAT-003
+    title: Initialize the outer repository on main and add repo-discipline scaffolding
+    description: |
+      Create the authoritative outer git repository at the workspace root, set main as the
+      initial branch, and add the ignore and metadata files required to keep sandbox runtime
+      artifacts, snapshots, exports, mirrors, and backups out of tracked history.
+    wave: 1
+    agent: gem-devops
+    prototype: false
+    covers:
+      - git
+      - repo-discipline
+      - local-workflow
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies: []
+    conflicts_with: []
+    context_files:
+      - path: AGENTS.md
+        description: Main-only auditable history and no-scope-creep rules.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_repository_workflow_release_discipline.yaml
+        description: Git init and tagging research for the outer repo.
+    target_files:
+      - .gitignore
+      - .gitattributes
+      - CHANGELOG.md
+    planning_pass: 1
+    estimated_effort: small
+    estimated_files: 3
+    estimated_lines: 120
+    focus_area: Outer repository bootstrap
+    expected_outputs:
+      - Local git repo initialized on main at the workspace root.
+      - Ignore policy for snapshots, mirrors, exports, caches, state, and backups.
+      - Changelog skeleton ready for milestone and release entries.
+    verification:
+      - Run git status and confirm the repository root is on main.
+      - Confirm ignored paths cover sandbox mirrors, snapshot stores, export stores, and backup paths.
+    acceptance_criteria:
+      - The outer repo exists at c:/Users/lomaz/live-ai-terrarium and uses main.
+      - No sandbox-inner git data or host state directories are tracked by default.
+      - CHANGELOG.md exists with v1 milestone placeholders.
+    failure_modes:
+      - scenario: Runtime artifacts or nested sandbox git history leak into the outer repository.
+        likelihood: medium
+        impact: high
+        mitigation: Add ignore rules before runtime work begins and verify with git status after each scaffold step.
+    environment: development
+    requires_approval: false
+    devops_security_sensitive: false
+
+  - id: LAT-004
+    title: Install milestone, release, and branch-semantics strategy
+    description: |
+      Document the outer-repo tagging rules that separate milestone checkpoints from the final
+      v1.0.0 release tag. Encode the milestone namespace, annotated-tag requirement, proof-gate
+      policy, release-note expectations, and outer-versus-inner branch semantics so later devops
+      tasks can execute mechanically.
+    wave: 1
+    agent: gem-devops
+    prototype: false
+    covers:
+      - git
+      - release
+      - tagging
+    priority: medium
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies: []
+    conflicts_with: []
+    context_files:
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_repository_workflow_release_discipline.yaml
+        description: Tagging and release-discipline research.
+      - path: docs/v1-architecture-brief.md
+        description: Milestone 1 proof contract that the final release tag must represent.
+    target_files:
+      - docs/releases/tag-strategy.md
+      - docs/milestones/README.md
+      - docs/releases/README.md
+    planning_pass: 1
+    estimated_effort: small
+    estimated_files: 3
+    estimated_lines: 140
+    focus_area: Tag policy
+    expected_outputs:
+      - Written namespace for milestone/v1-* tags and the final annotated v1.0.0 tag.
+      - Release-proof checklist rules and explicit outer-versus-inner branch semantics that later tagging tasks can follow verbatim.
+    verification:
+      - Confirm the strategy separates milestone tags from semantic version release tags.
+      - Confirm the policy keeps sandbox branch-and-continue evidence inside mirrored sandbox history and out of the outer main-only workflow.
+    acceptance_criteria:
+      - The tag strategy defines milestone tags, release tags, and annotated-tag usage.
+      - The strategy explicitly keeps sandbox-inner git branches and mirrors out of the outer main-only release workflow.
+      - The strategy references the ten-cycle proof contract and reversibility evidence before v1.0.0 can be created.
+    failure_modes:
+      - scenario: Milestone tags and release tags become interchangeable, weakening release evidence.
+        likelihood: medium
+        impact: medium
+        mitigation: Use distinct namespaces and require annotated tags plus supporting docs for both.
+    environment: development
+    requires_approval: false
+    devops_security_sensitive: false
+
+  - id: LAT-005
+    title: Bootstrap the Python project skeleton
+    description: |
+      Create the initial Python package and test harness so later implementation tasks have one
+      stable import root, one dependency manifest, and one local test entrypoint. Keep the project
+      layout simple and local-first.
+    wave: 2
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - scaffold
+      - python
+      - tests
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-001
+      - LAT-003
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: Frozen stack and module assumptions.
+      - path: AGENTS.md
+        description: Shared backend and strict role-separation guidance.
+    target_files:
+      - pyproject.toml
+      - src/live_ai_terrarium/__init__.py
+      - tests/conftest.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 220
+    focus_area: Package scaffold
+    expected_outputs:
+      - Python project metadata with grouped dependencies for API, CLI/TUI, Streamlit, and tests.
+      - Importable live_ai_terrarium package root and pytest bootstrap.
+    verification:
+      - Run the narrow dependency or import validation for the package root and pytest configuration.
+      - Confirm the manifest includes only v1-needed libraries and no remote-only extras.
+    acceptance_criteria:
+      - pyproject.toml defines one package root and test entrypoint.
+      - The package imports without reaching for unavailable runtime state.
+      - tests/conftest.py provides a local-first fixture baseline for later slices.
+    failure_modes:
+      - scenario: The base scaffold introduces multiple entrypoint patterns or unnecessary framework sprawl.
+        likelihood: medium
+        impact: high
+        mitigation: Keep one Python package, one dependency manifest, and one pytest setup only.
+    tech_stack:
+      - Python
+      - Pydantic
+      - FastAPI
+      - Typer
+      - Rich
+      - Streamlit
+      - pytest
+    test_coverage: Add pytest bootstrap coverage for imports and base fixtures.
+
+  - id: LAT-006
+    title: Create canonical IDs, records, and annotation contracts
+    description: |
+      Implement the typed contracts for project, Glass-Box, experiment, run, cycle, and mutation
+      IDs, plus cycle records, incident records, and annotation slots for the observer role.
+      These contracts become the source of truth for later services and views.
+    wave: 2
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - contracts
+      - observability
+      - annotations
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-001
+      - LAT-003
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-data-contract.md
+        description: Canonical ID and record requirements.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_data_logging_snapshot_evaluator.yaml
+        description: Data and evaluator research.
+    target_files:
+      - src/live_ai_terrarium/contracts/ids.py
+      - src/live_ai_terrarium/contracts/records.py
+      - tests/contracts/test_ids_records.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 260
+    focus_area: Canonical contracts
+    expected_outputs:
+      - Readable IDs plus UUID contracts for every hierarchy level.
+      - Typed cycle, incident, and annotation record schemas.
+    verification:
+      - Run contract tests covering ID formatting, UUID storage, and required record fields.
+      - Confirm the schemas include all proof-critical signals from the questionnaire.
+    acceptance_criteria:
+      - Every hierarchy object has one readable ID rule and one UUID field.
+      - Cycle records include task, diff, score, tests, errors, model, prompt, token, latency, and resource signals.
+      - Run records include task identity, seed, limits, model version, required outer repo commit SHA and container image digest, optional release tag and human-readable image name supplemental labels, and runtime-profile plus command-catalog hash or embedded snapshot as first-class reproducibility inputs.
+      - Cycle and run records can carry stable audit-event and full-log bundle references without ad hoc path reconstruction.
+      - Incident and annotation records are separate from cycle records but link by canonical IDs.
+    failure_modes:
+      - scenario: Records omit required proof signals or collapse incompatible concepts into one schema.
+        likelihood: medium
+        impact: high
+        mitigation: Keep cycle, incident, and annotation envelopes separate and test all required fields explicitly.
+    tech_stack:
+      - Python
+      - Pydantic
+      - pytest
+    test_coverage: Add contract tests for IDs, cycle records, incident records, and annotation links.
+
+  - id: LAT-007
+    title: Scaffold the hardened Docker runtime baseline
+    description: |
+      Build the runtime assets for exactly one Docker container per Glass-Box with non-root,
+      no-network, no-privileged defaults and an explicit allowlisted command catalog. This task
+      defines the runtime boundary but does not yet implement orchestration code.
+    wave: 2
+    agent: gem-devops
+    prototype: false
+    covers:
+      - docker
+      - security
+      - runtime
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-001
+      - LAT-003
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: Sandbox and gateway assumptions.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_sandbox_runtime_security.yaml
+        description: Sandbox runtime and security research.
+    target_files:
+      - infra/docker/glassbox/Dockerfile
+      - infra/security/runtime-profile.yaml
+      - infra/security/command-specs.yaml
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 240
+    focus_area: Runtime hardening
+    expected_outputs:
+      - Docker build and runtime policy for one Glass-Box container.
+      - Allowlisted command catalog for in-sandbox tool execution.
+    verification:
+      - Validate the runtime profile for non-root, no-network, and resource-limit defaults.
+      - Confirm the command catalog excludes Docker control, network tools, daemons, and dynamic download tools.
+    acceptance_criteria:
+      - The Dockerfile and runtime profile define one containerized sandbox baseline.
+      - The runtime profile blocks direct network and privileged runtime features.
+      - The command catalog exposes only validated v1 command specs.
+    failure_modes:
+      - scenario: Unsafe Docker defaults or a broad command list reintroduce host reach or arbitrary shell escape paths.
+        likelihood: medium
+        impact: critical
+        mitigation: Pin explicit runtime policy and keep the allowlist data-driven and minimal.
+    environment: development
+    requires_approval: false
+    devops_security_sensitive: true
+
+  - id: LAT-008
+    title: Implement host-controlled storage path helpers
+    description: |
+      Create the filesystem-first path and writer helpers that keep authoritative state outside
+      the sandbox while still giving later modules one typed API for records, exports, snapshots,
+      mirrors, incidents, and backups.
+    wave: 2
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - storage
+      - filesystem
+      - local-first
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-001
+      - LAT-003
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-ops-contract.md
+        description: State-root and backup assumptions.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_data_logging_snapshot_evaluator.yaml
+        description: Filesystem-first storage and recovery research.
+    target_files:
+      - src/live_ai_terrarium/storage/paths.py
+      - src/live_ai_terrarium/storage/filesystem.py
+      - tests/storage/test_filesystem_paths.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 230
+    focus_area: Host-controlled state layout
+    expected_outputs:
+      - Typed path helpers for records, snapshots, exports, mirrors, incidents, and backups.
+      - Append-only and host-controlled write conventions encoded in helper APIs.
+    verification:
+      - Run storage-path tests against Windows-style path expectations.
+      - Confirm the helper API never points sandbox writes at tracked outer-repo paths.
+    acceptance_criteria:
+      - All host-controlled state roots resolve under the local state or backup roots.
+      - Snapshot, mirror, export, incident, and record paths are distinct.
+      - The helper API supports deterministic path reconstruction from canonical IDs.
+    failure_modes:
+      - scenario: Runtime artifacts and authoritative state blur together or land in tracked repo paths.
+        likelihood: medium
+        impact: high
+        mitigation: Centralize every state path in one module and test Windows path generation explicitly.
+    tech_stack:
+      - Python
+      - pytest
+    test_coverage: Add path and filesystem helper tests for all durable state roots.
+
+  - id: LAT-023
+    title: Implement the executable sandbox boundary and append-only export contract
+    description: |
+      Build the explicit runtime boundary slice that enforces one controlled sandbox outbox,
+      no other shared mounts, blocked direct host reads or writes from inside the sandbox,
+      and append-only artifact egress into host-controlled storage. This task must include
+      executable contract tests rather than prose-only boundary claims.
+    wave: 3
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - sandbox-boundary
+      - export
+      - contract-tests
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-005
+      - LAT-007
+      - LAT-008
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: Frozen runtime and boundary contract.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_sandbox_runtime_security.yaml
+        description: Boundary and export-path research.
+    target_files:
+      - src/live_ai_terrarium/orchestrator/boundary.py
+      - src/live_ai_terrarium/storage/exports.py
+      - tests/sandbox_contract/test_boundary_export_contract.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 280
+    focus_area: Boundary and export enforcement
+    expected_outputs:
+      - Executable boundary policy enforcing one /workspace/.gb/outbox egress path and no other shared mounts.
+      - Append-only export writer and manifest helpers for host-controlled artifact storage.
+      - Contract tests covering blocked direct host reads or writes and denied in-place artifact rewrite.
+    verification:
+      - Run boundary contract tests for absence of other shared mounts, blocked direct host path access, append-only egress, and denied in-place artifact rewrite.
+      - Confirm export helpers never expose host-controlled record, log, snapshot, or mirror paths inside sandbox tool contracts.
+    acceptance_criteria:
+      - Exactly one controlled export directory exists for sandbox egress.
+      - The sandbox cannot directly read or write host-controlled records, logs, snapshots, mirrors, or export storage.
+      - Contract tests prove append-only artifact export and the absence of any other shared mount.
+    failure_modes:
+      - scenario: Hidden mounts or permissive export logic let the sandbox mutate host-controlled state.
+        likelihood: medium
+        impact: critical
+        mitigation: Keep mounts explicit, centralize export writes, and prove the contract with negative-path tests before runtime integration.
+    tech_stack:
+      - Python
+      - Docker CLI
+      - pytest
+    test_coverage: Add boundary and export contract tests for shared-mount absence, append-only egress, and blocked direct host access.
+
+  - id: LAT-009
+    title: Implement the canonical command envelope and dispatcher
+    description: |
+      Build the shared control-plane entrypoint that normalizes operator intent from API,
+      CLI/TUI, and Streamlit into one command envelope and one dispatch contract.
+      Keep the dispatcher surface-agnostic and free of transport-specific logic.
+    wave: 3
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - control-plane
+      - backend
+      - shared-contract
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-005
+      - LAT-006
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: Shared backend requirement across all control surfaces.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+        description: Command backend and schema research.
+    target_files:
+      - src/live_ai_terrarium/control/commands.py
+      - src/live_ai_terrarium/control/dispatcher.py
+      - tests/control/test_dispatcher.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 280
+    focus_area: Shared command path
+    expected_outputs:
+      - Canonical command envelope with actor, surface, scope, params, and mode context.
+      - One dispatcher API for later adapters.
+    verification:
+      - Run dispatcher tests covering command normalization, idempotency keys, unsupported command rejection, and fail-closed denial of pause, resume, branch, clone, reset, and rollback before an active mode-switch receipt bound to the same run or instance scope and current mode context exists.
+      - Confirm surface metadata is recorded without changing command semantics and mode-switch requests pass only when the approval policy permits them.
+    acceptance_criteria:
+      - The dispatcher accepts one canonical command shape.
+      - Query and control commands are clearly distinguished.
+      - The dispatcher enforces an executable allow-or-deny contract: observe allowed by default; mode switch allowed only when approval policy permits and yields an active mode-switch receipt bound to the same run or instance scope and current mode context; pause, resume, branch, clone, reset, and rollback denied until such a receipt exists; a historical receipt alone does not unlock control actions.
+      - Observation-only is the default mode context until an explicit mode-switch command is accepted.
+      - Observe, mode switch, pause, resume, branch, clone, reset, and rollback are represented as canonical commands rather than surface-local state changes.
+      - Negative-path tests prove disallowed commands fail closed before mode switch.
+      - No adapter-specific logic lives in the dispatcher module.
+    failure_modes:
+      - scenario: Surface adapters begin owning their own command semantics because the dispatcher contract is incomplete.
+        likelihood: medium
+        impact: critical
+        mitigation: Freeze the envelope early and block adapter work until command normalization tests pass.
+    tech_stack:
+      - Python
+      - Pydantic
+      - pytest
+    test_coverage: Add dispatcher tests for normalization, idempotency, invalid command rejection, approval-gated mode switch, and fail-closed denials before mode switch.
+
+  - id: LAT-010
+    title: Implement append-only audit ledger and approval flow
+    description: |
+      Add the audit and approval slice that records requested, approved, rejected, started,
+      completed, and failed command lifecycle events with a SHA-256 chain. Keep approvals explicit
+      even in single-user admin mode and keep all ledger writes host-controlled.
+    wave: 4
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - audit
+      - approvals
+      - tamper-evidence
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-006
+      - LAT-008
+      - LAT-009
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-data-contract.md
+        description: Audit chain and approval assumptions.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+        description: Audit and approval event research.
+    target_files:
+      - src/live_ai_terrarium/audit/ledger.py
+      - src/live_ai_terrarium/control/approval.py
+      - tests/audit/test_ledger_approval.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 280
+    focus_area: Audit and approval
+    expected_outputs:
+      - Hash-chained append-only ledger writer.
+      - Approval service and lifecycle event model for sensitive commands.
+    verification:
+      - Run ledger tests for append-only behavior, hash-chain verification, and approval preconditions.
+      - Confirm approval-required commands cannot move to started without approval records.
+    acceptance_criteria:
+      - The ledger writes chained events with previous-event hash and current-event hash.
+      - The approval service supports requested, approved, and rejected flows.
+      - Observe, mode switch, pause, resume, branch, clone, reset, and rollback emit auditable requested, approved when needed, started, completed, and failed events with run or cycle linkage.
+      - Sensitive commands remain blocked until approval is recorded.
+    failure_modes:
+      - scenario: Audit events can be reordered, rewritten, or bypassed for sensitive commands.
+        likelihood: medium
+        impact: critical
+        mitigation: Use chained append-only writes and test the negative path before exposing adapters.
+    tech_stack:
+      - Python
+      - hashlib
+      - pytest
+    test_coverage: Add ledger and approval tests including tamper-detection cases.
+
+  - id: LAT-011
+    title: Implement host-side orchestrator runtime and model gateway service
+    description: |
+      Create the host-side services that own container lifecycle, boundary/export enforcement,
+      and model mediation. This task must keep Docker control, credentials, rate limits,
+      per-run scoping, and host export authority outside the sandbox while presenting a small
+      API later consumed by the dispatcher and inner-agent runner.
+    wave: 4
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - orchestrator
+      - model-gateway
+      - runtime-control
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-005
+      - LAT-007
+      - LAT-008
+      - LAT-023
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: Host-side role boundaries and gateway assumptions.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_sandbox_runtime_security.yaml
+        description: Runtime security research.
+    target_files:
+      - src/live_ai_terrarium/orchestrator/service.py
+      - src/live_ai_terrarium/orchestrator/runtime.py
+      - src/live_ai_terrarium/gateway/service.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 300
+    focus_area: Host-side runtime ownership
+    expected_outputs:
+      - Orchestrator lifecycle API for pause, resume, reset, clone, rollback, restore, and append-only export hooks.
+      - Host-side model gateway service with per-run scoping and no sandbox secrets.
+    verification:
+      - Run narrow tests or type checks covering lifecycle command signatures, boundary/export integration, and gateway request validation.
+      - Confirm the gateway service exposes no direct secret or network path inside the sandbox contract and no direct host path escape outside the outbox flow.
+    acceptance_criteria:
+      - Docker and lifecycle control remain outside the sandbox.
+      - The only sandbox artifact egress is the controlled export contract provided by LAT-023.
+      - Model requests are mediated by the host-side gateway service with per-run scoping.
+      - The service API exposes broker hooks for run-scoped log capture and evidence writes without granting direct host-log access to sandbox code.
+      - The service API is small enough for dispatcher and runner reuse without transport-specific glue.
+    failure_modes:
+      - scenario: Gateway or runtime logic leaks direct secret or container authority to sandbox code.
+        likelihood: medium
+        impact: critical
+        mitigation: Keep the host-side services separate, typed, and free of sandbox-callable escape hatches.
+    tech_stack:
+      - Python
+      - Docker CLI
+      - pytest
+    test_coverage: Add lifecycle and gateway contract coverage before adapter integration.
+
+  - id: LAT-012
+    title: Implement the inner-agent runner, deterministic evaluator gates, and stop-condition detectors
+    description: |
+      Build the single-agent cycle runner that uses only allowlisted tool specs and the host-side
+      gateway contract, then apply deterministic gates, stable-cycle counting, and selected
+      stop-condition detectors to each mutation. Detect repeated crashes, syntax fail, score drop,
+      forbidden action attempt, resource overuse, and log silence before a run can continue.
+      Keep Pareto summaries secondary and only for already-valid candidates.
+    wave: 4
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - inner-agent
+      - evaluator
+      - stable-cycles
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-006
+      - LAT-007
+      - LAT-008
+      - LAT-023
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: Allowed tool and no-network assumptions.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_data_logging_snapshot_evaluator.yaml
+        description: Gate-first evaluator research.
+    target_files:
+      - src/live_ai_terrarium/agent/runner.py
+      - src/live_ai_terrarium/evaluation/gates.py
+      - tests/agent/test_runner_gates.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 300
+    focus_area: Agent loop and evaluator core
+    expected_outputs:
+      - Single-agent runner that works against the allowlisted tool catalog and executable boundary contract.
+      - Deterministic accept or reject gate logic, stable-cycle tracker, and selected stop-condition detectors.
+    verification:
+      - Run runner and gate tests covering repeated crashes, syntax fail, score drop, forbidden action attempt, resource overuse, log silence, regression, and accepted-cycle counting.
+      - Confirm Pareto metadata is only computed after gates pass and stop-condition detectors cannot be bypassed by valid-looking output.
+    acceptance_criteria:
+      - The runner never assumes direct network or direct host access and respects the executable boundary/export contract.
+      - Gate logic enforces syntax, tests, forbidden-action checks, no-regression, and selected stop-condition detection before accept or continue.
+      - Stable-cycle counting supports the ten-cycle milestone and stop-condition outputs are persisted for later incident reporting.
+    failure_modes:
+      - scenario: The runner accepts invalid mutations, misses a selected stop condition, or lets Pareto ranking override the gate-first policy.
+        likelihood: medium
+        impact: critical
+        mitigation: Encode accept logic and stop conditions as explicit hard gates and keep Pareto outputs informational until validity is established.
+    tech_stack:
+      - Python
+      - pytest
+    test_coverage: Add runner and gate tests covering valid, invalid, and regressed cycles.
+
+  - id: LAT-013
+    title: Implement the failure-response controller, recovery, snapshots, git mirror updates, and incident bundles
+    description: |
+      Add the recovery slice that preserves evidence first. This task must encode the v1 failure
+      response order of pause -> snapshot -> branch-and-continue or rollback or kill/restore,
+      write per-cycle file snapshots, periodic full snapshots, sandbox git mirror updates, and
+      incident bundles, then expose manual rollback and restore hooks that later proof tests can exercise.
+    wave: 5
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - recovery
+      - snapshots
+      - git-mirror
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-008
+      - LAT-010
+      - LAT-011
+      - LAT-012
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-ops-contract.md
+        description: Snapshot cadence and restore assumptions.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_data_logging_snapshot_evaluator.yaml
+        description: Recovery and reproducibility research.
+    target_files:
+      - src/live_ai_terrarium/recovery/snapshots.py
+      - src/live_ai_terrarium/recovery/recovery.py
+      - tests/recovery/test_recovery.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 280
+    focus_area: Evidence-first recovery
+    expected_outputs:
+      - Failure-response controller that preserves evidence before destructive actions.
+      - Snapshot, restore, git mirror, branch evidence, incident-bundle, and recovery-reference helpers for per-cycle and periodic full-state recovery.
+    verification:
+      - Run recovery tests for pause-then-snapshot ordering, incident capture, branch-and-continue branch creation, manual rollback, and restore path reconstruction.
+      - Confirm failing-state evidence, full logs, and branch metadata are preserved before rollback or kill/restore actions.
+    acceptance_criteria:
+      - Recovery APIs enforce pause before snapshot before branch or rollback or kill-restore.
+      - Per-cycle and periodic full snapshots are addressable by canonical IDs and linked to incident records plus read-side recovery references.
+      - Branch-and-continue creates sandbox-inner branch and mirrored evidence without creating outer-repo feature branches.
+      - Manual rollback restores the last accepted stable state while preserving the failing path and full logs.
+    failure_modes:
+      - scenario: Failure-response logic runs destructive actions before evidence capture or cannot reconstruct the last accepted stable state.
+        likelihood: medium
+        impact: critical
+        mitigation: Keep snapshot, incident, and branch evidence writes append-only and validate ordering plus restore reconstruction in tests.
+    tech_stack:
+      - Python
+      - pytest
+    test_coverage: Add recovery tests for snapshot, incident, and restore sequencing.
+
+  - id: LAT-025
+    title: Persist run-start reproducibility manifests and broker append-only full-log capture
+    description: |
+      Add the dedicated run-evidence slice that writes a run-start reproducibility manifest
+      before cycle 1, brokers full-log capture into append-only host storage, and links
+      cycle records to audit events and log bundles for later read models, reviews, and proof
+      packaging. This task owns task identity, seed, limits, model version, required outer
+      repo commit SHA and container image digest, optional release tag and human-readable
+      image name supplemental labels, and runtime-profile plus command-catalog hash or
+      embedded snapshot persistence so LAT-017 can consume one complete
+      reproducibility and log-evidence bundle instead of reconstructing it ad hoc.
+    wave: 5
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - reproducibility
+      - logs
+      - audit-linkage
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-006
+      - LAT-007
+      - LAT-008
+      - LAT-010
+      - LAT-011
+      - LAT-012
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-data-contract.md
+        description: Reproducibility-input and proof-bundle contract.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_data_logging_snapshot_evaluator.yaml
+        description: Full-log, record, and evaluator evidence research.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+        description: Audit-linkage and mode-switch audit research.
+    target_files:
+      - src/live_ai_terrarium/storage/run_evidence.py
+      - src/live_ai_terrarium/storage/log_capture.py
+      - tests/storage/test_run_evidence.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 280
+    focus_area: Reproducibility and log evidence
+    expected_outputs:
+      - Run-start reproducibility manifest with immutable build identity, including required outer repo commit SHA and container image digest, persisted in host-controlled storage before cycle 1.
+      - Brokered append-only full-log capture with run and cycle references plus cycle-to-audit linkage helpers.
+      - Proof-bundle manifest inputs that later read models, review checks, and milestone proofs consume directly.
+    verification:
+      - Run tests covering manifest creation before the first cycle, append-only log writes, cycle-to-audit linkage resolution, immutable build-identity capture for required outer repo commit SHA and container image digest, and missing required-field failures.
+      - Confirm sandbox code cannot write logs directly to authoritative host storage and proof consumers can resolve full-log bundles from canonical IDs.
+    acceptance_criteria:
+      - A run cannot advance to cycle 1 until the reproducibility manifest exists in host-controlled storage.
+      - The manifest records task identity, seed, limits, model version, required outer repo commit SHA and container image digest, optional release tag and human-readable image name supplemental labels, and runtime-profile plus command-catalog hash or embedded snapshot.
+      - Full logs are captured through a brokered host-side path and stored append-only with canonical run or cycle references.
+      - Each cycle can resolve linked audit events and full-log bundle references without ad hoc path reconstruction.
+      - Active mode-switch and lifecycle receipts needed for proof or review can be resolved from the same run evidence bundle and validated against the same run or instance scope and current mode context; a historical receipt alone does not unlock control actions.
+      - The task emits proof-bundle inputs that LAT-017 and LAT-021 can consume directly.
+    failure_modes:
+      - scenario: Proof passes without enough run configuration or log lineage to reproduce or audit the milestone run.
+        likelihood: medium
+        impact: critical
+        mitigation: Persist the manifest before cycle 1, keep log storage append-only, and fail proof assembly when linkage is missing.
+    tech_stack:
+      - Python
+      - pytest
+    test_coverage: Add tests for run-start manifests, append-only log capture, and cycle-to-audit linkage.
+
+  - id: LAT-024
+    title: Implement the shared query and read-model service
+    description: |
+      Build the dedicated read-side service that derives run summaries, cycle drill-down,
+      audit timelines, and reversibility views from canonical records, recovery outputs, and host-controlled
+      evidence. API, CLI/TUI, and Streamlit must all consume this service instead of
+      reading files directly or maintaining surface-specific state models.
+    wave: 6
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - query
+      - read-model
+      - shared-backend
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-006
+      - LAT-008
+      - LAT-010
+      - LAT-012
+      - LAT-013
+      - LAT-025
+    conflicts_with: []
+    context_files:
+      - path: docs/v1-architecture-brief.md
+        description: Canonical records and shared-surface acceptance rules.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+        description: Query-service and adapter separation research.
+    target_files:
+      - src/live_ai_terrarium/query/service.py
+      - src/live_ai_terrarium/query/read_models.py
+      - tests/query/test_read_models.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 260
+    focus_area: Shared read path
+    expected_outputs:
+      - One query service API for run summaries, cycle detail, audit receipts, stop-condition views, and recovery-backed reversibility views.
+      - Canonical read models reused by API, CLI/TUI, and Streamlit.
+    verification:
+      - Run read-model tests against canonical cycle records, audit events, recovery artifact indexes, and fixture incident indexes.
+      - Confirm no surface adapter needs direct filesystem reads or its own aggregation logic for proof-critical views.
+    acceptance_criteria:
+      - The shared query service derives summaries from canonical per-cycle records rather than a second source of truth.
+      - The service exposes one real read path for API, CLI/TUI, and Streamlit parity.
+      - Read models include cycle diff, score, decision, observation-mode state, mode-switch timeline, reproducibility manifest summary, full-log bundle references, and recovery-backed incident, snapshot, rollback, and branch references.
+    failure_modes:
+      - scenario: Each surface builds its own aggregates and drifts from the canonical record set.
+        likelihood: medium
+        impact: critical
+        mitigation: Force all surfaces to depend on the query service and prove parity with shared read-model tests.
+    tech_stack:
+      - Python
+      - Pydantic
+      - pytest
+    test_coverage: Add read-model tests for summaries, cycle detail, audit timelines, and recovery-backed incident plus rollback references.
+
+  - id: LAT-014
+    title: Implement the local API adapter over the shared backend
+    description: |
+      Build the local API surface that exposes queries and commands without re-implementing
+      business rules. The adapter must be thin, backend-driven, and faithful to the canonical
+      command contracts and shared read-model service.
+    wave: 7
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - api
+      - adapters
+      - shared-backend
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-002
+      - LAT-009
+      - LAT-010
+      - LAT-011
+      - LAT-013
+      - LAT-024
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: API, CLI, and Streamlit parity requirement.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+        description: Query and command adapter research.
+    target_files:
+      - src/live_ai_terrarium/adapters/api/app.py
+      - src/live_ai_terrarium/adapters/api/routes.py
+      - tests/adapters/test_api.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 260
+    focus_area: Programmatic surface
+    expected_outputs:
+      - Local API app exposing read and command endpoints through the shared backend.
+      - Adapter tests for request normalization, receipt parity, and action parity for observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+    verification:
+      - Run narrow API tests covering command submission, query responses, active mode-switch receipt handling bound to the same run or instance scope and current mode context, deny receipts, and action parity for observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+      - Confirm the adapter does not own command logic outside route translation or build its own read-side aggregation.
+    acceptance_criteria:
+      - The API surfaces query and command endpoints only through the shared dispatcher and shared query service.
+      - The API exposes observe, mode switch, pause, resume, branch, clone, reset, and rollback only through canonical command routes.
+      - The API preserves the observation-only contract by allowing observe by default, routing mode switch through approval policy, and returning deny receipts for pause, resume, branch, clone, reset, and rollback until an active mode-switch receipt bound to the same run or instance scope and current mode context exists; a historical receipt alone does not unlock control actions.
+      - Responses expose command receipts and status views tied to canonical IDs and shared read models.
+      - Adapter tests prove transport-layer parity with the command envelope, the full eight-action list, and shared read-model responses.
+    failure_modes:
+      - scenario: API routes re-implement business rules and diverge from CLI and dashboard semantics.
+        likelihood: medium
+        impact: critical
+        mitigation: Keep route handlers thin and route all command work through the dispatcher contract.
+    tech_stack:
+      - Python
+      - FastAPI
+      - pytest
+    test_coverage: Add API adapter tests for query parity, eight-action command parity, and pre-mode-switch deny receipts.
+
+  - id: LAT-015
+    title: Implement the gb CLI and Rich TUI over the shared backend
+    description: |
+      Build the terminal-native control surface that uses the same dispatcher, approvals,
+      records, and recovery evidence as the API and dashboard. Keep the CLI scriptable and the
+      TUI drill-down focused on proof-critical observability.
+    wave: 7
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - cli
+      - tui
+      - shared-backend
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-002
+      - LAT-009
+      - LAT-010
+      - LAT-011
+      - LAT-013
+      - LAT-024
+    conflicts_with: []
+    context_files:
+      - path: docs/design/v1-tui-flows.md
+        description: Terminal flow specification.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+        description: Shared backend requirements for CLI and TUI.
+    target_files:
+      - src/live_ai_terrarium/adapters/cli/gb.py
+      - src/live_ai_terrarium/adapters/cli/tui.py
+      - tests/adapters/test_cli_tui.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 280
+    focus_area: Terminal surface
+    expected_outputs:
+      - gb command entrypoint for lifecycle, query, and proof operations.
+      - Rich TUI views for per-cycle drill-down and approval state.
+    verification:
+      - Run CLI and TUI adapter tests covering command parity, status rendering, audit receipt display, and action parity for observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+      - Confirm terminal actions map to the same command envelopes as API calls and all views read through the shared query service.
+    acceptance_criteria:
+      - The CLI can issue lifecycle and query commands through the shared backend.
+      - The CLI or TUI surfaces observe, mode switch, pause, resume, branch, clone, reset, and rollback using the same command semantics as the API.
+      - The TUI shows per-cycle diff, score, decision, incident, and audit states.
+      - Terminal tests prove parity with dispatcher semantics, the full eight-action list, and shared read-model outputs.
+    failure_modes:
+      - scenario: The CLI or TUI bypasses the approval flow or reads stale state instead of canonical records.
+        likelihood: medium
+        impact: high
+        mitigation: Bind terminal actions to the dispatcher and query services only, and test receipt rendering explicitly.
+    tech_stack:
+      - Python
+      - Typer
+      - Rich
+      - pytest
+    test_coverage: Add CLI and TUI parity tests against dispatcher-backed behavior for observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+
+  - id: LAT-016
+    title: Implement the Streamlit dashboard over the shared backend
+    description: |
+      Build the visual operator surface on top of the same query and command services.
+      The dashboard must expose the ten-cycle proof evidence, diff plus score plus decision drill-down,
+      approval-aware controls, and incident plus rollback visibility without introducing a second backend.
+    wave: 7
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - dashboard
+      - streamlit
+      - shared-backend
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-002
+      - LAT-009
+      - LAT-010
+      - LAT-011
+      - LAT-013
+      - LAT-024
+    conflicts_with: []
+    context_files:
+      - path: docs/design/v1-streamlit-surfaces.md
+        description: Streamlit information architecture.
+      - path: docs/plan/20260426-live-ai-terrarium-v1/research_findings_control_plane.yaml
+        description: Shared backend and dashboard integration research.
+    target_files:
+      - src/live_ai_terrarium/adapters/dashboard/streamlit_app.py
+      - src/live_ai_terrarium/adapters/dashboard/views.py
+      - tests/adapters/test_dashboard_views.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 300
+    focus_area: Visual operator surface
+    expected_outputs:
+      - Streamlit app showing summaries, cycle drill-down, approvals, incidents, and rollback state.
+      - Dashboard view and action-parity tests for canonical-model rendering and dispatcher-backed behavior across observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+    verification:
+      - Run dashboard view and action-parity tests against sample canonical records, audit receipts, and dispatcher-backed receipts for observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+      - Confirm all control actions route through the shared command path, all drill-down views use the shared query service, and no direct local state mutation or surface-specific aggregation exists.
+    acceptance_criteria:
+      - The dashboard shows per-cycle diff, score, and decision views.
+      - The dashboard exposes observe, mode switch, pause, resume, branch, clone, reset, and rollback over the shared command path with the same semantics as the API and CLI/TUI.
+      - Sensitive controls display approval state and outcome receipts.
+      - Dashboard tests prove action parity against the same backend command path and do not stop at rendering or view coverage.
+      - Dashboard code reads through the shared query service and does not own business rules or a second read model.
+    failure_modes:
+      - scenario: Streamlit becomes a second control implementation or hides proof-critical evidence behind UI-only state.
+        likelihood: medium
+        impact: critical
+        mitigation: Keep dashboard code view-focused and route every action through backend services.
+    tech_stack:
+      - Python
+      - Streamlit
+      - pytest
+    test_coverage: Add dashboard rendering and action-parity tests against canonical sample records and dispatcher-backed receipts.
+
+  - id: LAT-017
+    title: Build the ten-cycle proof harness and end-to-end contract tests
+    description: |
+      Add the narrow end-to-end proof suite that demonstrates ten stable cycles, full canonical
+      per-cycle record emission, preserved full logs, evidence-backed reversibility, and surface
+      parity. This task is the executable proof gate for release work, must refuse to run unless
+      LAT-019 has emitted a cleared machine-readable proof status, and must stay focused on the
+      v1 milestone rather than broader benchmark coverage.
+    wave: 8
+    agent: gem-implementer
+    prototype: false
+    covers:
+      - e2e
+      - milestone-proof
+      - validation
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-013
+      - LAT-014
+      - LAT-015
+      - LAT-016
+      - LAT-019
+      - LAT-025
+    conflicts_with: []
+    context_files:
+      - path: docs/v1-architecture-brief.md
+        description: Ten-cycle proof and rollback contract.
+      - path: docs/specs/v1-ops-contract.md
+        description: Stable-cycle, rollback, and state assumptions.
+      - path: docs/reviews/proof-clearance-status.yaml
+        description: Machine-readable proof-clearance gate emitted by LAT-019.
+    target_files:
+      - tests/e2e/test_ten_cycle_proof.py
+      - tests/e2e/test_rollback_flow.py
+      - tests/e2e/test_surface_parity.py
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 280
+    focus_area: Release-proof execution
+    expected_outputs:
+      - Executable ten-cycle proof suite with canonical-record, full-log, rollback, branch-and-continue, and surface-parity assertions across observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+      - Fail-closed proof preflight that reads structured proof-clearance status before running milestone assertions.
+      - Proof artifact manifest linking canonical records, immutable build identity rooted in required outer repo commit SHA and container image digest, log bundle, snapshot or branch evidence, and surface receipts.
+    verification:
+      - Run the e2e proof suite and capture a pass or fail artifact set plus canonical record inventory.
+      - Confirm the harness reads docs/reviews/proof-clearance-status.yaml and fails closed before executing ten-cycle run assertions when status is missing or blocked.
+      - Confirm the proof bundle contains the run-start reproducibility manifest with task identity, seed, limits, model version, required outer repo commit SHA and container image digest, optional release tag and human-readable image name supplemental labels, runtime-profile hash or embedded snapshot, command-catalog hash or embedded snapshot, and resolvable audit and full-log references before declaring milestone success.
+      - Confirm surface-parity assertions compare shared read-model outputs and command receipts for observe, mode switch, pause, resume, branch, clone, reset, and rollback, not screenshot text alone.
+      - Confirm negative-path tests prove pause, resume, branch, clone, reset, and rollback fail closed across API, CLI/TUI, and Streamlit before an active mode-switch receipt bound to the same run or instance scope and current mode context exists, while observe remains available and mode switch follows approval policy.
+    acceptance_criteria:
+      - The proof harness reads a structured proof-clearance artifact and refuses to execute milestone assertions until status is cleared.
+      - The proof run completes ten stable cycles without unrecoverable failure and every cycle emits a canonical record with required fields.
+      - The proof bundle includes the run-start reproducibility manifest with task identity, seed, limits, model version, required outer repo commit SHA and container image digest, optional release tag and human-readable image name supplemental labels, runtime-profile hash or embedded snapshot, and command-catalog hash or embedded snapshot.
+      - Full logs are preserved for all proof cycles and are linkable to cycle IDs and audit IDs.
+      - Reversibility evidence proves pause-then-snapshot ordering, branch-and-continue evidence retention, and manual rollback to the last accepted stable state.
+      - API, CLI/TUI, and Streamlit reflect the same command and read-model truths for observe, mode switch, pause, resume, branch, clone, reset, and rollback.
+      - Negative-path proof assertions show pause, resume, branch, clone, reset, and rollback fail closed before an active mode-switch receipt bound to the same run or instance scope and current mode context exists, while observe remains allowed and mode switch follows approval policy.
+    failure_modes:
+      - scenario: The proof suite passes while hiding incomplete records, dropped logs, inconsistent surfaces, or weak rollback guarantees.
+        likelihood: medium
+        impact: critical
+        mitigation: Keep dedicated assertions for canonical records, full logs, parity, and rollback plus branch evidence, and fail closed on missing or blocked proof-clearance status.
+    tech_stack:
+      - Python
+      - pytest
+    test_coverage: Add e2e proof tests for the milestone contract, immutable build identity, eight-action surface parity, and pre-mode-switch fail-closed behavior.
+
+  - id: LAT-018
+    title: Execute in-browser dashboard validation and collect evidence
+    description: |
+      Use the browser-testing lane to validate the Streamlit dashboard against the design contract
+      and canonical proof data. Record evidence for drill-down, approval visibility, incident views,
+      and rollback-related surfaces.
+    wave: 8
+    agent: gem-browser-tester
+    prototype: false
+    covers:
+      - browser-validation
+      - dashboard
+      - evidence
+    priority: medium
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-016
+    conflicts_with: []
+    context_files:
+      - path: docs/design/v1-streamlit-surfaces.md
+        description: Streamlit interaction contract.
+      - path: src/live_ai_terrarium/adapters/dashboard/streamlit_app.py
+        description: Dashboard entrypoint under test.
+    target_files:
+      - docs/test-evidence/browser-dashboard-validation.md
+      - docs/test-evidence/browser-dashboard-visual-baseline.md
+    planning_pass: 1
+    estimated_effort: small
+    estimated_files: 2
+    estimated_lines: 120
+    focus_area: Browser evidence
+    expected_outputs:
+      - Human-readable browser validation evidence for the Streamlit dashboard.
+      - Visual baseline notes for proof-critical views.
+    verification:
+      - Run the browser validation matrix against a populated local dataset.
+      - Confirm the recorded evidence maps back to canonical IDs and proof views.
+    acceptance_criteria:
+      - Browser evidence covers run summary, cycle drill-down, approval visibility, and incident visibility.
+      - Validation notes document whether the dashboard matches the design contract.
+    failure_modes:
+      - scenario: The dashboard looks correct at a glance but fails the proof-critical operator flows.
+        likelihood: medium
+        impact: medium
+        mitigation: Test named operator scenarios with canonical proof data and record explicit outcomes.
+    validation_matrix:
+      - scenario: Cycle drill-down visibility
+        steps:
+          - Open the Streamlit dashboard for a populated run.
+          - Select the run summary and open cycle 1 then cycle 10.
+          - Compare displayed diff, score, and decision with canonical records.
+        expected_result: The dashboard matches the canonical records for both cycles.
+      - scenario: Sensitive control visibility
+        steps:
+          - Open a command requiring approval.
+          - Inspect approval state, receipt, and audit-linked context.
+        expected_result: Approval state and audit receipt are visible before action outcome.
+      - scenario: Incident and rollback evidence
+        steps:
+          - Open a run containing at least one recorded incident.
+          - Navigate to the incident or rollback panel.
+        expected_result: Incident metadata, snapshot references, and recovery status are visible.
+    flows:
+      - flow_id: FLOW-DASH-001
+        description: Review one run and verify cycle drill-down and audit visibility.
+        setup:
+          - Start the Streamlit app with a populated local proof dataset.
+        steps:
+          - Load the run list.
+          - Open the ten-cycle run.
+          - Open a cycle detail view.
+          - Open approval and incident panels.
+        expected_state:
+          run_loaded: true
+          cycle_detail_visible: true
+          approval_panel_visible: true
+          incident_panel_visible: true
+        teardown:
+          - Close the browser session.
+    fixtures:
+      proof_dataset: Ten-cycle local proof dataset produced by LAT-017 or equivalent seeded fixtures.
+    test_data:
+      - One accepted run with ten stable cycles.
+      - One run with at least one incident and a recorded recovery path.
+    cleanup: true
+    visual_regression:
+      baseline_source: docs/design/v1-streamlit-surfaces.md
+      tolerance: Layout parity only; data values must match the canonical proof dataset exactly.
+
+  - id: LAT-019
+    title: Run the focused boundary and security checklist review
+    description: |
+      Perform a read-only review focused on the runtime boundary/export contract, gateway
+      separation, audit integrity, approval enforcement, and outer-versus-inner git separation.
+      This task must call out proof-blocking findings around one controlled export directory,
+      absence of other shared mounts, blocked direct host reads or writes, and sandbox
+      no-network or no-secrets guarantees before the milestone harness can run, then emit
+      a machine-readable proof-clearance artifact for LAT-017 to consume.
+    wave: 6
+    agent: gem-reviewer
+    prototype: false
+    covers:
+      - security
+      - compliance
+      - release-readiness
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-007
+      - LAT-010
+      - LAT-011
+      - LAT-023
+      - LAT-025
+    conflicts_with: []
+    context_files:
+      - path: AGENTS.md
+        description: Hard boundaries, audit guarantees, and git discipline.
+      - path: docs/v1-architecture-brief.md
+        description: Non-negotiable constraints and milestone contract.
+    target_files:
+      - docs/reviews/security-readiness-v1.md
+      - docs/reviews/runtime-boundary-audit.md
+      - docs/reviews/proof-clearance-status.yaml
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 180
+    focus_area: Security review
+    expected_outputs:
+      - Review report listing any proof-blocking or release-blocking findings.
+      - Boundary-audit report covering runtime, export egress, gateway, audit, and git separation.
+      - Structured proof-clearance status with status, blocker list, and reviewed artifact references for the milestone harness.
+    verification:
+      - Review the runtime profile, boundary/export contract tests, gateway service, audit ledger, and outer-versus-inner git separation docs.
+      - Classify findings as blocker, must-fix-before-proof, must-fix-before-tag, or post-v1, and emit proof-clearance-status.yaml that resolves to cleared only when no proof blockers remain.
+    acceptance_criteria:
+      - The review explicitly states whether direct network, secrets-in-sandbox, or host-control leakage exists.
+      - The review explicitly checks that no shared mounts exist beyond the controlled export path and that direct host reads or writes from inside the sandbox are blocked.
+      - The review explicitly checks audit tamper evidence, approval enforcement, observation-only default behavior, auditable mode-switch events, and separation between outer git history and sandbox-inner git mirror state.
+      - The review explicitly checks that the run-start reproducibility manifest and append-only log linkage artifacts exist and are complete enough for proof consumption.
+      - The review emits a machine-readable proof-clearance artifact with at least status, blocker_ids, and reviewed_at fields for LAT-017 to read before assertions.
+    failure_modes:
+      - scenario: Proof or release proceeds without an explicit review of the highest-risk boundary and export assumptions.
+        likelihood: medium
+        impact: critical
+        mitigation: Gate the proof harness and release-proof tasks on written review artifacts, blocker classification, and machine-readable clearance status.
+    requires_review: true
+    review_depth: full
+    review_security_sensitive: true
+
+  - id: LAT-020
+    title: Refresh runtime, operator, and architecture documentation
+    description: |
+      Update the long-lived human-facing docs so the implemented runtime contract, operator flow,
+      failure policy, shared read path, and architecture reflect the actual v1 shape. Keep these
+      docs aligned with the questionnaire, and prepare them to link to the later release-proof
+      evidence bundle.
+    wave: 8
+    agent: gem-documentation-writer
+    prototype: false
+    covers:
+      - docs
+      - runtime
+      - runbook
+    priority: medium
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-013
+      - LAT-014
+      - LAT-015
+      - LAT-016
+      - LAT-019
+      - LAT-025
+    conflicts_with: []
+    context_files:
+      - path: docs/specs/v1-system-contract.md
+        description: Frozen v1 runtime and control contract.
+      - path: docs/design/v1-control-states.md
+        description: Operator state and approval flow design.
+    target_files:
+      - docs/runtime/sandbox-runtime-contract.md
+      - docs/operators/v1-runbook.md
+      - docs/v1-architecture-brief.md
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 220
+    focus_area: Long-lived docs
+    expected_outputs:
+      - Runtime contract doc aligned to the implementation.
+      - Operator runbook covering startup, observation, stop conditions, pause, branch-and-continue, rollback, and incident handling.
+      - Updated architecture brief with implementation-accurate module boundaries and shared read-path rules.
+    verification:
+      - Confirm every updated doc links back to the questionnaire-derived contract and reflects implemented module names.
+      - Confirm the runbook uses the shared API, gb CLI, and Streamlit surfaces consistently and documents proof-gate prerequisites.
+    acceptance_criteria:
+      - The runtime contract explicitly states one outbox export path, no-network, no-secrets, and no host-access rules.
+      - The runbook describes observation-first operation, approval-gated controls, selected stop conditions, pause-then-snapshot ordering, branch-and-continue, and manual rollback.
+      - The architecture brief remains aligned with the questionnaire and current implementation plan.
+    failure_modes:
+      - scenario: Long-lived docs drift from the implemented behavior, making validation and release evidence harder to trust.
+        likelihood: medium
+        impact: medium
+        mitigation: Refresh the docs immediately after the core surfaces land and before release-proof packaging.
+    task_type: update
+    audience: developers
+    coverage_matrix:
+      - Runtime contract
+      - Operator runbook
+      - Architecture brief alignment
+
+  - id: LAT-021
+    title: Assemble the release-proof bundle and create milestone tags
+    description: |
+      Package the milestone evidence for the outer main branch. This task must collect the ten-cycle
+      proof, canonical per-cycle record inventory, preserved full logs, reversibility evidence,
+      browser evidence, boundary checklist review, docs refresh, changelog, and release notes into
+      one milestone bundle, then create the milestone/v1-* tags defined in the tag strategy.
+    wave: 9
+    agent: gem-devops
+    prototype: false
+    covers:
+      - release-proof
+      - milestone-tags
+      - changelog
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-004
+      - LAT-017
+      - LAT-018
+      - LAT-019
+      - LAT-020
+    conflicts_with:
+      - LAT-003
+    context_files:
+      - path: docs/releases/tag-strategy.md
+        description: Milestone and release tag rules.
+      - path: docs/v1-architecture-brief.md
+        description: Ten-cycle milestone contract.
+    target_files:
+      - docs/milestones/m1-proof-checklist.md
+      - docs/releases/v1.0.0.md
+      - CHANGELOG.md
+    planning_pass: 1
+    estimated_effort: medium
+    estimated_files: 3
+    estimated_lines: 220
+    focus_area: Milestone evidence packaging
+    expected_outputs:
+      - Completed proof checklist tied to proof artifacts, canonical record inventory, reproducibility manifest, full log bundle, cycle-to-audit linkage evidence, boundary checklist, and reversibility evidence.
+      - Release note draft and changelog entries for the v1 milestone.
+      - Annotated milestone/v1-* tags on main.
+    verification:
+      - Confirm the proof checklist links to e2e proof output, canonical record inventory, full log bundle, boundary checklist, browser evidence, and reversibility artifacts.
+      - Confirm all milestone tags are annotated and land on the single outer main branch.
+    acceptance_criteria:
+      - The proof checklist shows ten stable cycles, full canonical per-cycle record emission, the required run-start reproducibility manifest, preserved full logs, cycle-to-audit linkage evidence, branch-and-continue plus manual rollback evidence, and zero unrecoverable failures.
+      - Release notes and changelog reference the exact proof, checklist, and review artifacts.
+      - Milestone tags are created using the documented namespace and annotated-tag rule while keeping sandbox-inner branch evidence outside the outer branch graph.
+    failure_modes:
+      - scenario: Milestone tags are created without a complete proof bundle or drift from the documented tag strategy.
+        likelihood: medium
+        impact: high
+        mitigation: Make the checklist and linked evidence mandatory before creating any milestone tag.
+    environment: development
+    requires_approval: true
+    devops_security_sensitive: true
+
+  - id: LAT-022
+    title: Create the final annotated v1.0.0 tag on main
+    description: |
+      Perform the final outer-repository release action only after the proof bundle is complete.
+      Verify the workspace is clean, the branch is main, the milestone checklist is complete,
+      and the annotated v1.0.0 tag is attached to the proof-backed release commit.
+    wave: 10
+    agent: gem-devops
+    prototype: false
+    covers:
+      - release
+      - git-tag
+      - main-branch
+    priority: high
+    status: pending
+    flags:
+      flaky: false
+      retries_used: 0
+    dependencies:
+      - LAT-021
+    conflicts_with: []
+    context_files:
+      - path: docs/releases/v1.0.0.md
+        description: Final release notes and linked proof evidence.
+      - path: docs/milestones/m1-proof-checklist.md
+        description: Milestone proof completion record.
+    target_files: []
+    planning_pass: 1
+    estimated_effort: small
+    estimated_files: 0
+    estimated_lines: 40
+    focus_area: Final release tag
+    expected_outputs:
+      - Annotated v1.0.0 tag on the single outer main branch.
+      - Verified clean release point with complete proof and documentation.
+    verification:
+      - Confirm the working tree is clean and the current branch is main.
+      - Confirm the v1.0.0 tag is annotated and points at the proof-backed release commit.
+    acceptance_criteria:
+      - The final tag is v1.0.0 and is annotated.
+      - The final tag is created only after LAT-021 artifacts are complete and the outer repository remains on main.
+      - The release point preserves the separation between outer repo history and sandbox-inner git mirror history.
+    failure_modes:
+      - scenario: The final release tag lands on an unclean or weakly evidenced commit.
+        likelihood: low
+        impact: critical
+        mitigation: Require clean-main verification and the completed proof checklist before tagging.
+    environment: development
+    requires_approval: true
+    devops_security_sensitive: true

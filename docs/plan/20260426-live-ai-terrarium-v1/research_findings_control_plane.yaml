@@ -1,0 +1,293 @@
+plan_id: 20260426-live-ai-terrarium-v1
+objective: Produce implementation-ready research for the control plane slice of a local-first Live AI Terrarium v1 project.
+focus_area: shared command backend, API, CLI/TUI, Streamlit dashboard integration, role boundaries, command/event schemas
+created_at: 2026-04-26
+created_by: GitHub Copilot GPT-5.4
+status: completed
+sources:
+  - AGENTS.md
+  - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md
+  - docs/v1-architecture-brief.md
+repo_state:
+  implementation_surface: doc_only
+  note: The repository currently contains source-of-truth docs only, so the file layout below is a recommended first implementation slice derived from the docs rather than an extension of existing code.
+slice_goal: |
+  Build one shared control-plane backend that owns all operator commands, approvals, and audit events for v1.
+  The backend must serve API endpoints, CLI/gb commands, Rich TUI actions, and Streamlit dashboard controls through the same command path.
+  The slice must preserve observation-only as the default mode, expose explicit control operations, and keep all sensitive actions auditable under a single-user admin model.
+concrete_components:
+  - name: control command backend
+    responsibility: Canonical entry point for all operator-issued commands across API, CLI/TUI, and Streamlit.
+    required_behavior:
+      - Normalizes surface-specific input into one command envelope.
+      - Applies role, mode, and approval policy before execution.
+      - Dispatches only to orchestrator-owned control operations.
+      - Emits append-only audit events for requested, approved, rejected, started, completed, and failed states.
+    source_basis:
+      - AGENTS.md: one shared backend, explicit auditable commands, typed validated interfaces.
+      - questionnaire: Q3.2, Q9.3, Q10.2, Q10.3.
+  - name: command policy and approval gate
+    responsibility: Distinguish read-only, control, and approval-required commands under observation-first defaults.
+    required_behavior:
+      - Observation commands remain available by default.
+      - Explicit control commands exist but are denied or gated unless mode and approval policy allow them.
+      - Sensitive actions require logged approval even in single-user admin mode.
+    source_basis:
+      - AGENTS.md: observation-only default; all mode changes explicit through shared API path.
+      - questionnaire: Q3.1, Q3.2, Q10.3.
+  - name: audit and event ledger
+    responsibility: Persist command lifecycle events as the authoritative control-plane history.
+    required_behavior:
+      - Append-only writes controlled outside the sandbox.
+      - Hash-chain records for tamper evidence.
+      - Cross-reference command events to project, glass-box, experiment, run, and cycle IDs.
+      - Separate audit events from per-cycle observability records while linking them by scope.
+    source_basis:
+      - questionnaire: Q2.3, Q4.3, Q7.1, Q7.2, Q11.3.
+      - architecture brief: audit logs append-only and hash-chained; per-cycle records are source of truth.
+  - name: orchestrator control service
+    responsibility: Own lifecycle-changing operations such as pause, resume, branch, reset, rollback, clone, and mode switching.
+    required_behavior:
+      - Executes only host-side operations outside the sandbox.
+      - Preserves evidence first on failure paths: pause, snapshot, branch if needed, rollback or restore, then report.
+      - Never delegates containment, audit, or storage authority to the inner agent.
+    source_basis:
+      - AGENTS.md: failure handling preserves evidence first; storage truth is outside sandbox.
+      - questionnaire: Q3.3, Q10.1, Q11.2.
+  - name: API adapter
+    responsibility: Expose local programmatic endpoints over the shared backend without duplicating business rules.
+    required_behavior:
+      - Accept command requests and query requests.
+      - Return normalized command receipts and status views.
+      - Reuse the same schemas as CLI/TUI and dashboard.
+    source_basis:
+      - questionnaire: Q10.2.
+      - architecture brief: dashboard and CLI views operate on same control API.
+  - name: CLI and Rich TUI adapter
+    responsibility: Provide gb command entrypoints and terminal-native inspection over shared backend data.
+    required_behavior:
+      - Convert terminal arguments and prompts into the same command envelope used by API and dashboard.
+      - Read canonical per-cycle records and command events instead of owning separate state.
+      - Surface approval and command receipts clearly for auditability.
+    source_basis:
+      - questionnaire: Q4.2, Q10.2.
+      - AGENTS.md: dashboard and CLI views read the same records.
+  - name: Streamlit dashboard adapter
+    responsibility: Present control and observability views without becoming a second control implementation.
+    required_behavior:
+      - Read aggregated summaries and drill into per-cycle records from the same backend-owned data.
+      - Submit all toggles and control actions through the same command backend path.
+      - Display command receipts, approval state, and audit trail for sensitive actions.
+    source_basis:
+      - questionnaire: Q4.2, Q4.3, Q10.2.
+      - architecture brief: Streamlit reads and controls through shared API.
+  - name: shared schemas package
+    responsibility: Define stable typed contracts for commands, approvals, events, IDs, and control status views.
+    required_behavior:
+      - Prevent API, CLI, TUI, and dashboard payload drift.
+      - Encode role boundaries and target scope explicitly.
+      - Support both human-readable IDs and internal UUID references.
+    source_basis:
+      - questionnaire: Q7.2, Q8.2, Q9.3.
+recommended_files_and_directories:
+  implementation_assumption: A single Python codebase is the narrowest fit for v1 because the repo already expects Streamlit and provides Python-oriented workspace tooling; logical role separation should be enforced in modules rather than separate services.
+  layout:
+    - path: src/live_ai_terrarium/control_plane/commands/__init__.py
+      purpose: Public command catalog and command registration surface.
+    - path: src/live_ai_terrarium/control_plane/commands/catalog.py
+      purpose: Enumerate supported query and control command names plus target scopes.
+    - path: src/live_ai_terrarium/control_plane/commands/dispatcher.py
+      purpose: Normalize incoming commands, apply policy, and dispatch to orchestrator services.
+    - path: src/live_ai_terrarium/control_plane/commands/policy.py
+      purpose: Observation-only rules, approval requirements, allowed surfaces, and role checks.
+    - path: src/live_ai_terrarium/control_plane/schemas/command.py
+      purpose: Canonical command envelope schema shared by API, CLI/TUI, and dashboard.
+    - path: src/live_ai_terrarium/control_plane/schemas/event.py
+      purpose: Audit event schema for command lifecycle events.
+    - path: src/live_ai_terrarium/control_plane/schemas/approval.py
+      purpose: Approval request and approval decision schema.
+    - path: src/live_ai_terrarium/control_plane/schemas/ids.py
+      purpose: Structured IDs and scope references for project, glass-box, experiment, run, and cycle.
+    - path: src/live_ai_terrarium/control_plane/services/control_service.py
+      purpose: Host-side execution service for lifecycle and mode commands.
+    - path: src/live_ai_terrarium/control_plane/services/approval_service.py
+      purpose: Create, resolve, and log approval-gated actions.
+    - path: src/live_ai_terrarium/control_plane/services/audit_log_service.py
+      purpose: Append-only event persistence and hash-chain verification.
+    - path: src/live_ai_terrarium/control_plane/services/query_service.py
+      purpose: Read-side queries used by API, CLI/TUI, and Streamlit views.
+    - path: src/live_ai_terrarium/control_plane/adapters/api/app.py
+      purpose: Local API surface exposing query and command endpoints.
+    - path: src/live_ai_terrarium/control_plane/adapters/api/routes_commands.py
+      purpose: Command submission and command-status endpoints.
+    - path: src/live_ai_terrarium/control_plane/adapters/api/routes_queries.py
+      purpose: Read-only endpoints for status, run, cycle, and audit views.
+    - path: src/live_ai_terrarium/control_plane/adapters/cli/gb.py
+      purpose: gb command entrypoint over the shared backend.
+    - path: src/live_ai_terrarium/control_plane/adapters/cli/tui.py
+      purpose: Rich TUI views and actions that call the same query and command services.
+    - path: src/live_ai_terrarium/control_plane/adapters/dashboard/streamlit_app.py
+      purpose: Streamlit dashboard entrypoint for summaries, drill-down, and control actions.
+    - path: src/live_ai_terrarium/control_plane/adapters/dashboard/control_actions.py
+      purpose: Dashboard action wrappers that only call the shared backend.
+    - path: src/live_ai_terrarium/control_plane/storage/audit/
+      purpose: Host-controlled append-only audit ledger storage.
+    - path: src/live_ai_terrarium/control_plane/storage/records/
+      purpose: Canonical per-cycle records and aggregated summaries read by CLI/TUI and Streamlit.
+    - path: tests/control_plane/test_command_parity.py
+      purpose: Assert API, CLI, and dashboard produce identical normalized commands.
+    - path: tests/control_plane/test_observation_mode.py
+      purpose: Assert default-mode behavior and approval gating.
+    - path: tests/control_plane/test_audit_chain.py
+      purpose: Assert append-only and tamper-evident event behavior.
+    - path: tests/control_plane/test_role_boundaries.py
+      purpose: Assert inner-agent and dashboard boundaries are not violated.
+implementation_notes:
+  architecture_shape:
+    - Start with one process and strict module boundaries because the docs require logical separation but do not require microservices in v1.
+    - Keep adapters thin. API, CLI/TUI, and Streamlit should translate inputs and render outputs, but command validation, approval checks, execution, and audit writes should live in backend services only.
+    - Keep read models separate from command execution. Query handlers can read per-cycle records and command events, while control handlers mutate only host-side orchestration state.
+  role_boundaries:
+    - Orchestrator owns control execution, lifecycle changes, failure handling, snapshots, rollback, and branching.
+    - Model Gateway owns model access, rate limits, and credentials. It is not part of the operator control backend.
+    - Inner Agent never calls host-control commands directly. Its typed tool API is separate from human control-plane commands.
+    - Evaluator can contribute decision status and regression checks but should not own operator approvals or UI logic.
+    - Dashboard, CLI/TUI, and API are presentation and transport surfaces only.
+    - Observer/Annotator can emit annotations linked to runs or cycles but should not override core gates or audit state.
+  command_categories:
+    - query commands: list and inspect projects, glass-boxes, runs, cycles, summaries, failures, and audit history.
+    - control commands: mode switch, pause, resume, branch, clone, reset, rollback, and emergency stop workflows.
+    - approval-required minimum set: reset, rollback, scoring changes, task injection, constraint modification, and any command that turns observation-only into an active control mode.
+    - policy-declared set: branch and clone may be direct admin operations or approval-gated operations, but the policy must declare that explicitly rather than leaving it implicit.
+  canonical_command_schema:
+    required_fields:
+      - command_id
+      - command_name
+      - issued_at
+      - actor_id
+      - actor_role
+      - surface
+      - target_kind
+      - target_id
+      - scope_refs
+      - params
+      - mode_context
+      - reason
+      - idempotency_key
+    notes:
+      - scope_refs should support project_id, glassbox_id, experiment_id, run_id, and cycle_id when applicable.
+      - surface should distinguish api, cli, tui, and dashboard for audit traceability without changing command semantics.
+      - mode_context should capture whether the system was in observation-only or explicit control mode when the command was issued.
+  canonical_event_schema:
+    required_fields:
+      - event_id
+      - command_id
+      - event_type
+      - occurred_at
+      - actor_id
+      - actor_role
+      - target_kind
+      - target_id
+      - scope_refs
+      - payload
+      - previous_event_hash
+      - event_hash
+    required_event_types:
+      - command.requested
+      - command.approval_requested
+      - command.approved
+      - command.rejected
+      - command.started
+      - command.completed
+      - command.failed
+    notes:
+      - Keep command events separate from cycle records; link them by scope and command_id rather than merging both concepts into one document.
+      - Failure events should reference any incident report or rollback branch created by the failure policy.
+  approval_schema:
+    required_fields:
+      - approval_id
+      - command_id
+      - requested_at
+      - requested_by
+      - approval_status
+      - resolved_at
+      - resolved_by
+      - approval_reason
+    notes:
+      - Single-user admin does not remove the approval record; it only collapses requester and approver identity to the same actor when necessary.
+      - Approval events still need to be logged as distinct audit events.
+  storage_shape:
+    - Keep v1 storage local-first and host-controlled, matching the docs. A file-backed append-only ledger and file-backed per-cycle records are consistent with the selected v1 storage model.
+    - Treat the audit ledger and per-cycle records as different stores with cross-references, not as one overloaded artifact.
+    - Preserve human-readable IDs and internal UUIDs together so logs and dashboards remain navigable without sacrificing referential integrity.
+validation_checks:
+  - check: Surface parity
+    success_condition: The same logical command submitted through API, CLI/gb, Rich TUI, and Streamlit normalizes to the same canonical command payload except for surface metadata.
+  - check: Observation-only default
+    success_condition: Read-only commands succeed by default, while control commands are blocked or approval-gated until an explicit audited mode-switch command is accepted.
+  - check: Approval enforcement
+    success_condition: Approval-required commands cannot transition to started or completed without an approval record and matching audit events.
+  - check: Audit integrity
+    success_condition: Audit events are append-only, externally controlled, and hash-chain verification detects deletion, reordering, or mutation.
+  - check: Role boundary enforcement
+    success_condition: Inner-agent code paths cannot invoke orchestrator lifecycle controls, audit-log writers, or dashboard-facing mutation paths.
+  - check: Record separation
+    success_condition: Per-cycle observability records remain the source of truth for cycle views, while control-plane audit events remain the source of truth for operator actions.
+  - check: Failure workflow
+    success_condition: Forbidden action attempt, repeated crash, syntax failure, score drop, resource overuse, or log silence triggers pause, evidence capture, and reported recovery steps consistent with the documented failure policy.
+  - check: Dashboard integration
+    success_condition: Streamlit actions display command receipt, approval state, and command outcome while reading the same summaries and drill-down records as CLI/TUI views.
+key_risks:
+  - risk: Adapter drift
+    impact: API, CLI/TUI, and Streamlit may evolve different command names or payload shapes unless all surfaces share the same schemas and dispatcher.
+  - risk: Role leakage
+    impact: Without strict module boundaries, the dashboard, evaluator, or inner-agent code could start owning orchestration decisions that belong to the host-side control layer.
+  - risk: Audit and observability conflation
+    impact: Combining cycle records and operator command events into one store will weaken both replay clarity and audit guarantees.
+  - risk: Ambiguous approval taxonomy
+    impact: If the approval-required command set is not fixed early, destructive operations may ship with inconsistent policy across surfaces.
+  - risk: Local-file integrity under concurrent writes
+    impact: A local-first file-backed ledger is consistent with v1, but it needs disciplined append semantics and verification to avoid corruption or partial writes.
+  - risk: Overcoupling to transport
+    impact: If the API layer becomes the only real backend, local CLI and Streamlit may depend on HTTP even when a direct in-process backend call would be simpler and more reliable for v1.
+  - risk: Scope expansion
+    impact: Chat control, multi-agent concerns, streaming-first observability, or database-first persistence can consume the slice before the v1 proof loop exists.
+planner_ready_tasks:
+  - task: Define canonical command, event, approval, and ID schemas.
+    done_when:
+      - One schema package is shared by API, CLI/TUI, and Streamlit.
+      - Required fields and event types are fixed and documented.
+      - Command categories and approval requirements are explicit.
+  - task: Build the shared command dispatcher and policy layer.
+    done_when:
+      - All operator commands enter through one dispatcher.
+      - Observation-only defaults and approval rules are enforced centrally.
+      - Surface metadata is recorded without changing command semantics.
+  - task: Implement append-only audit logging with hash chaining.
+    done_when:
+      - Command lifecycle events are persisted outside the sandbox.
+      - Verification detects tampering or ordering gaps.
+      - Command receipts can be queried by command_id, run_id, and cycle_id.
+  - task: Implement host-side lifecycle control services.
+    done_when:
+      - Pause, resume, branch, reset, rollback, clone, and mode switching are executed only by orchestrator-owned services.
+      - Failure handling follows pause, snapshot, branch when useful, rollback or restore, then report.
+  - task: Add the local API adapter over the shared backend.
+    done_when:
+      - Programmatic endpoints reuse the same schemas and dispatcher.
+      - Query and command routes are separated.
+      - API responses expose normalized command receipts and status views.
+  - task: Add the gb CLI and Rich TUI adapters.
+    done_when:
+      - Terminal commands call the same query and command services as the API.
+      - TUI views read canonical records and audit events.
+      - Approval state and command outcomes are visible in terminal flows.
+  - task: Add the Streamlit dashboard control and drill-down views.
+    done_when:
+      - Streamlit actions call the same backend command path.
+      - Dashboard summaries and drill-down views come from canonical records.
+      - Sensitive actions show approval state and audit receipts.
+  - task: Add control-plane validation tests.
+    done_when:
+      - Surface parity, observation-only, approval enforcement, audit integrity, and role-boundary tests all pass.
+      - Failure-path tests prove evidence-first handling and reporting.

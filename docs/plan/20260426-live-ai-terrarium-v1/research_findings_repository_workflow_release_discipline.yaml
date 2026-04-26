@@ -1,0 +1,479 @@
+plan_id: "20260426-live-ai-terrarium-v1"
+objective: "Produce implementation-ready research for the repository workflow and release discipline slice of a local-first Live AI Terrarium v1 project."
+focus_area: "outer git repo initialization, single-main-branch discipline, tag strategy, release path to v1.0.0, separation from sandbox-inner git mirror, milestone tagging, local backup expectations"
+created_at: "2026-04-26"
+created_by: "gem-researcher"
+status: "completed"
+tldr: |
+  - The workspace root is not yet a Git repository, so the outer project history needs to be initialized from zero at the live-ai-terrarium root.
+  - The source documents consistently require auditable history, externally authoritative storage, and sandbox Git mirroring without giving sandbox-local history authority over the host project.
+  - The clean outer workflow is a single local main branch with small traceable commits, annotated milestone tags that do not overlap the release namespace, and a final annotated v1.0.0 tag only after the Milestone 1 contract is evidenced.
+  - Sandbox branch-and-continue remains valid for failure preservation inside the sandbox mirror, but that behavior should not turn into long-lived outer project branches.
+  - Local-first backup expectations imply at least one separate backup copy of the outer repo and one separate backup copy of mirrored sandbox state outside the active working tree.
+research_metadata:
+  methodology: "Read AGENTS.md and the two source-of-truth documents, searched the workspace for Git or release material, verified current outer-repo Git state, and checked Git documentation for initialization and tagging behavior."
+  scope: "Repository workflow and release discipline for the outer live-ai-terrarium workspace only; excludes implementation code and excludes sandbox-internal branching mechanics except where they affect separation from the outer repo."
+  confidence: "high"
+  coverage: 95
+  decision_blockers: 0
+  research_blockers: 0
+files_analyzed:
+  - file: "AGENTS.md"
+    path: "AGENTS.md"
+    purpose: "Repository-wide operating constraints, especially Git discipline and evidence-preserving workflow expectations."
+    key_elements:
+      - element: "Reversibility and external mirroring contract"
+        type: "pattern"
+        location: "AGENTS.md :: Repository Mission / V1 Scope"
+        description: "Defines sandbox Git mirroring as part of the product contract and places authoritative storage outside the sandbox."
+        language: "markdown"
+      - element: "Git Discipline"
+        type: "pattern"
+        location: "AGENTS.md :: Git Discipline"
+        description: "Requires auditable history, small traceable changes, and documentation updates in the same change when behavior shifts."
+        language: "markdown"
+    lines: 36
+  - file: "v1-architecture-brief.md"
+    path: "docs/v1-architecture-brief.md"
+    purpose: "Questionnaire-derived architecture handoff that defines the Milestone 1 contract, reversibility expectations, and implementation order."
+    key_elements:
+      - element: "Selected V1 Architecture"
+        type: "pattern"
+        location: "docs/v1-architecture-brief.md :: Selected V1 Architecture"
+        description: "Defines reversibility, first milestone scope, and the requirement that sandbox Git is mirrored externally."
+        language: "markdown"
+      - element: "Milestone 1 Contract"
+        type: "pattern"
+        location: "docs/v1-architecture-brief.md :: Milestone 1 Contract"
+        description: "Defines the proof threshold for v1 and constrains when a v1.0.0 release tag is justified."
+        language: "markdown"
+    lines: 100
+  - file: "live_ai_terrarium_questionnaire_working_file_v_1_0.md"
+    path: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md"
+    purpose: "Source-of-truth decision ledger for reversibility, storage authority, rollback policy, milestone scope, and success criteria."
+    key_elements:
+      - element: "Q5 Reversibility Model"
+        type: "pattern"
+        location: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.1-Q5.3"
+        description: "States that sandbox Git exists inside the sandbox, is mirrored externally, and that rollback is manual with branch-and-continue."
+        language: "markdown"
+      - element: "Q12 Data Retention Policy"
+        type: "pattern"
+        location: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q12.1-Q12.3"
+        description: "Defines local plus backup plus versioned filesystem storage expectations for v1."
+        language: "markdown"
+      - element: "Q15 Minimal First Milestone"
+        type: "pattern"
+        location: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q15.1-Q15.3"
+        description: "Defines the narrow proof loop that must exist before a v1 release is credible."
+        language: "markdown"
+    lines: 292
+patterns_found:
+  - category: "architecture"
+    pattern: "Outer authority, inner convenience"
+    description: "The docs consistently place durable authority outside the sandbox while allowing sandbox-local state only as a working copy."
+    examples:
+      - file: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md"
+        location: "Q5.2 Storage location"
+        snippet: "Host-controlled external storage + inside-sandbox local copy mirrored externally"
+      - file: "docs/v1-architecture-brief.md"
+        location: "Non-Negotiable Constraints"
+        snippet: "Storage truth is host-controlled and mirrored externally; local sandbox state is not the authority."
+    prevalence: "common"
+  - category: "structure"
+    pattern: "Evidence-first reversibility"
+    description: "Failure and rollback policy preserves evidence before restore actions and treats branching as an investigation tool."
+    examples:
+      - file: "AGENTS.md"
+        location: "Implementation Principles"
+        snippet: "Failure handling preserves evidence first: pause, snapshot, branch if useful, then rollback or kill and restore."
+      - file: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md"
+        location: "Q5.3 Rollback policy"
+        snippet: "Manual rollback via Glass-Box command + branch-and-continue"
+    prevalence: "common"
+  - category: "naming"
+    pattern: "Release terms reserved for milestone-proof states"
+    description: "The docs treat the first release as a proof loop with explicit success criteria rather than a generic version bump."
+    examples:
+      - file: "docs/v1-architecture-brief.md"
+        location: "Selected V1 Architecture"
+        snippet: "The first release is a proof loop, not a scale or autonomy release."
+      - file: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md"
+        location: "Q15.1-Q15.3"
+        snippet: "10 stable cycles with full logs and rollback ... Zero unrecoverable failures + full observability and reproducibility"
+    prevalence: "common"
+  - category: "error_handling"
+    pattern: "No history rewriting bias"
+    description: "The repository-level guidance prefers preserving informative states and traceability over rewriting history for neatness."
+    examples:
+      - file: "AGENTS.md"
+        location: "Git Discipline"
+        snippet: "Preserve auditable history; prefer branch-and-continue over rewriting or deleting informative failure states."
+    prevalence: "common"
+related_architecture:
+  components_relevant_to_domain:
+    - component: "Outer project repository"
+      responsibility: "Tracks project source, docs, and release history for the host-controlled workspace."
+      location: "workspace root :: c:/Users/lomaz/live-ai-terrarium"
+      relationship_to_domain: "This is the repository that should be initialized now and become the authoritative project history for implementation work."
+    - component: "Sandbox inner Git repository"
+      responsibility: "Records code evolution inside the Glass-Box for per-cycle diffs and rollback support."
+      location: "inside sandbox runtime; mirrored externally"
+      relationship_to_domain: "Must remain logically and operationally separate from the outer project Git history."
+    - component: "External mirror and backup storage"
+      responsibility: "Holds authoritative audit and recovery copies of mirrored sandbox state and retained artifacts."
+      location: "host-controlled storage outside sandbox authority"
+      relationship_to_domain: "Separates durable recovery evidence from mutable sandbox-local state."
+  interfaces_used_by_domain:
+    - interface: "Git CLI initialization"
+      location: "git-init documentation"
+      usage_pattern: "Initialize the outer repo with an explicit initial branch name rather than relying on Git defaults."
+    - interface: "Git tags"
+      location: "Git Basics - Tagging"
+      usage_pattern: "Use annotated tags for durable milestone and release markers that need tagger metadata and messages."
+  data_flow_involving_domain: "Outer project commits and tags describe repository-level implementation progress; sandbox runtime produces its own Git history, diffs, snapshots, and logs; host-controlled mirror and backup storage receive the sandbox history and artifacts without merging that history into the outer project branch graph."
+  key_relationships_to_domain:
+    - from: "Outer project repository"
+      to: "Source-of-truth docs"
+      relationship: "composes"
+    - from: "Sandbox inner Git repository"
+      to: "External mirror and backup storage"
+      relationship: "imports"
+    - from: "Milestone 1 contract"
+      to: "v1.0.0 release tag"
+      relationship: "gates"
+related_technology_stack:
+  languages_used_in_domain:
+    - "Markdown"
+    - "YAML"
+  frameworks_used_in_domain:
+    - name: "Git"
+      usage_in_domain: "Repository initialization, commit history, and milestone or release tagging."
+  libraries_used_in_domain:
+    - name: "Filesystem backups"
+      purpose_in_domain: "Provide local-first durable copies of repo state and mirrored sandbox artifacts outside the active working tree."
+  external_apis_used_in_domain: []
+related_conventions:
+  naming_patterns_in_domain: "The project already uses v1 language for architecture scope and milestone proof; semver release tagging fits that vocabulary, while milestone tags should use a distinct non-semver namespace so proof checkpoints are not mistaken for releases."
+  structure_of_domain: "The current workspace has only source-of-truth docs and no Git scaffolding; repository workflow artifacts need to be introduced at the workspace root and should keep local runtime state out of tracked history."
+  error_handling_in_domain: "Preserve evidence first, avoid rewriting history, and keep rollback deliberate and auditable."
+  testing_in_domain: "Validation is operational rather than unit-test based in this slice: verify branch state, ignored paths, tag metadata, and the Milestone 1 proof evidence required for release."
+  documentation_in_domain: "When architecture, scope, or operator behavior changes, questionnaire-derived docs should change in the same commit as the implementation."
+related_dependencies:
+  internal:
+    - component: "AGENTS.md"
+      relationship_to_domain: "Defines Git discipline for all future repository activity."
+      direction: "inbound"
+    - component: "docs/v1-architecture-brief.md"
+      relationship_to_domain: "Defines the milestone gate that a final release tag must represent."
+      direction: "inbound"
+    - component: ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md"
+      relationship_to_domain: "Acts as source of truth for reversibility, backup, and rollback expectations."
+      direction: "inbound"
+  external:
+    - name: "Git init"
+      purpose_for_domain: "Supports explicit creation of the outer repo with main as the initial branch."
+    - name: "Git annotated tags"
+      purpose_for_domain: "Support durable milestone and release markers with tagger identity and messages."
+domain_security_considerations:
+  sensitive_areas:
+    - area: "Mixing sandbox Git state into the outer repo"
+      location: "outer workspace root and any local mirror directory"
+      concern: "Violates the intended boundary between host-controlled project history and sandbox-local execution history."
+    - area: "Backups stored only inside the active working tree"
+      location: "workspace-local backup folders"
+      concern: "Creates a single failure domain and weakens the host-controlled durability requirement."
+  authentication_patterns_in_domain: "No authentication mechanism is defined for this slice; the relevant control is physical or local administrative ownership of the host-controlled repo and backup locations."
+  authorization_patterns_in_domain: "The broader system uses single-user admin with audit-logged approvals for sensitive actions, which implies release tagging and rollback policy changes should be explicit and documented even in a local-first setup."
+  data_validation_in_domain: "Validate that outer tracked paths exclude local mirrors, snapshots, exports, and backups; validate that tag names follow one agreed namespace and that release tags only map to commits that meet the milestone contract."
+testing_patterns:
+  framework: "Git CLI plus document-backed release checklist"
+  coverage_areas:
+    - "outer repo initialization"
+    - "single-main-branch enforcement"
+    - "ignored sandbox mirror and backup paths"
+    - "annotated milestone tags"
+    - "final v1.0.0 release evidence"
+  test_organization: "Repository workflow checks should run as a pre-release checklist and whenever the outer repo structure or ignore rules change."
+  mock_patterns: []
+open_questions:
+  - question: "Should milestone tags align to architecture implementation-order steps or only to milestone-proof checkpoints?"
+    context: "The source docs define both an implementation order and a Milestone 1 success contract, but they do not prescribe which one should drive intermediate tag names."
+    type: "nice_to_know"
+    affects:
+      - "milestone tag naming"
+      - "release notes layout"
+  - question: "Should local backups live in a gitignored workspace directory or in a sibling directory outside the repo root by policy?"
+    context: "The docs require local plus backup plus versioned filesystem storage, but they do not name the backup path convention for a local-first single-machine setup."
+    type: "nice_to_know"
+    affects:
+      - ".gitignore scope"
+      - "backup automation"
+      - "disaster-recovery playbook"
+gaps:
+  - area: "Tag namespace specification"
+    description: "The repository documents define milestone and release expectations but do not define a concrete milestone tag naming convention."
+    impact: "nice_to_know"
+    affects:
+      - "milestone tagging"
+      - "release-path consistency"
+  - area: "Local backup placement and cadence"
+    description: "The source-of-truth documents require backups and versioned storage but do not specify path layout, frequency, or retention cadence for the outer repo and sandbox mirrors."
+    impact: "nice_to_know"
+    affects:
+      - "backup scripts"
+      - "ops documentation"
+      - "restore drills"
+slice_goal:
+  statement: "Initialize a host-controlled outer Git repository at the live-ai-terrarium root, keep project history on a single local main branch with small auditable commits, use milestone tags and the final v1.0.0 tag as explicit evidence markers, and keep sandbox-inner Git history mirrored but separate from the outer branch graph."
+  current_state: "The workspace root is not currently a Git repository, and there is no existing repo-level release or ignore scaffold."
+  non_goals:
+    - "Do not merge sandbox-inner Git history into the outer project history."
+    - "Do not rely on long-lived outer feature branches for v1 workflow discipline."
+    - "Do not treat local sandbox state as the authoritative recovery source."
+  source_refs:
+    - "AGENTS.md :: Git Discipline"
+    - "docs/v1-architecture-brief.md :: Selected V1 Architecture / Milestone 1 Contract"
+    - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.1-Q5.3, Q12.3, Q15.1-Q15.3"
+    - "workspace check :: git -C c:/Users/lomaz/live-ai-terrarium rev-parse --is-inside-work-tree -> fatal: not a git repository"
+    - "https://git-scm.com/docs/git-init :: --initial-branch"
+concrete_components:
+  - name: "Outer repository root"
+    purpose: "Authoritative project history for source, docs, and release tags."
+    recommended_state: "Initialize at c:/Users/lomaz/live-ai-terrarium with main as the initial branch."
+    source_refs:
+      - "workspace check :: outer root is not yet a Git repo"
+      - "https://git-scm.com/docs/git-init :: --initial-branch"
+  - name: "Single local main branch"
+    purpose: "Carries the disciplined project history without long-lived outer branch divergence."
+    recommended_state: "All outer repo commits land on main; history remains linear enough to audit without branch sprawl."
+    source_refs:
+      - "user clarification :: disciplined commits and tags on a single main local branch"
+      - "AGENTS.md :: Git Discipline"
+  - name: "Annotated milestone tags"
+    purpose: "Mark proof checkpoints and architecture-complete states without pretending to be releases."
+    recommended_state: "Use annotated tags in a milestone-only namespace such as milestone/v1-* or m1-*; avoid lightweight tags for durable markers."
+    source_refs:
+      - "docs/v1-architecture-brief.md :: Milestone 1 Contract / Implementation Order"
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: annotated tags vs lightweight tags"
+  - name: "Final release tag v1.0.0"
+    purpose: "Represents the first proof release after the Milestone 1 success contract is satisfied."
+    recommended_state: "Create as an annotated tag only after the repo contains evidence for 10 stable cycles, full logs, rollback, and per-cycle diff or score or decision visibility."
+    source_refs:
+      - "docs/v1-architecture-brief.md :: Milestone 1 Contract"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q15.1-Q15.3"
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: release points and annotated tags"
+  - name: "Sandbox mirror boundary"
+    purpose: "Preserves the reversibility contract without contaminating outer project history."
+    recommended_state: "Store mirrored sandbox repos in a dedicated ignored or external path; never stage nested sandbox .git data in the outer repo."
+    source_refs:
+      - "AGENTS.md :: Repository Mission / Git Discipline"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.1-Q5.3"
+  - name: "Local backup set"
+    purpose: "Meets the local-first durability requirement for both outer repo state and mirrored sandbox evidence."
+    recommended_state: "Maintain a second copy of the outer repo and a second copy of mirrored sandbox artifacts outside the active working tree."
+    source_refs:
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q12.1-Q12.3"
+      - "docs/v1-architecture-brief.md :: Non-Negotiable Constraints"
+recommended_files_and_directories:
+  tracked:
+    - path: ".gitignore"
+      purpose: "Prevents sandbox mirrors, exports, snapshots, caches, and local backups from entering outer project history."
+      notes: "This is the minimum repo-discipline file because no ignore policy exists yet."
+      source_refs:
+        - "workspace search :: no .gitignore found"
+        - "AGENTS.md :: Git Discipline"
+    - path: "CHANGELOG.md"
+      purpose: "Provides a durable release narrative from repository initialization through v1.0.0."
+      notes: "Keeps milestone and release intent visible in the repo rather than relying only on tag names."
+      source_refs:
+        - "docs/v1-architecture-brief.md :: The first release is a proof loop"
+    - path: "docs/releases/v1.0.0.md"
+      purpose: "Captures the final release checklist, evidence links, and milestone proof summary that justify the v1.0.0 tag."
+      notes: "Should point back to the Milestone 1 contract and the exact evidence produced by the run."
+      source_refs:
+        - "docs/v1-architecture-brief.md :: Milestone 1 Contract"
+        - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q15.1-Q15.3"
+    - path: "docs/milestones/"
+      purpose: "Holds milestone definitions and evidence notes aligned with milestone tags."
+      notes: "Prevents ad hoc tag creation without a written checkpoint definition."
+      source_refs:
+        - "docs/v1-architecture-brief.md :: Implementation Order"
+  ignored_or_external:
+    - path: ".local/sandbox-mirrors/"
+      purpose: "Dedicated landing zone for mirrored sandbox Git repositories or bare mirrors."
+      notes: "Keeps inner Git history available locally without mixing it into outer repo history."
+      source_refs:
+        - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.1-Q5.2"
+    - path: ".local/exports/"
+      purpose: "Controlled export landing zone for artifacts leaving the sandbox."
+      notes: "Matches the hard-boundary model and should stay ignored by outer Git."
+      source_refs:
+        - "docs/v1-architecture-brief.md :: Selected V1 Architecture / Boundary crossings"
+    - path: ".local/backups/"
+      purpose: "Local-first backup area for outer repo snapshots and mirrored sandbox evidence."
+      notes: "A sibling path outside the repo root is even safer if the operator wants stricter failure-domain separation."
+      source_refs:
+        - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q12.1-Q12.3"
+implementation_notes:
+  - note: "Initialize the outer repository at the workspace root and set the initial branch explicitly to main, because the workspace is not yet under Git and Git defaults are version-dependent."
+    source_refs:
+      - "workspace check :: not a git repository"
+      - "https://git-scm.com/docs/git-init :: --initial-branch"
+  - note: "The first outer commit should capture the current source-of-truth docs as the baseline state so later changes remain traceable to the questionnaire-derived contract."
+    source_refs:
+      - "AGENTS.md :: Source of truth / Git Discipline"
+      - "workspace structure :: only AGENTS.md, docs/, and .github/ are present"
+  - note: "Outer history should stay on main. Branch-and-continue is still valid for sandbox failure preservation, but that branching belongs to sandbox mirrors, not to the outer project repo."
+    source_refs:
+      - "user clarification :: single main local branch"
+      - "AGENTS.md :: Git Discipline"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.3"
+  - note: "Milestone tags should use a namespace that cannot be mistaken for releases. Final release tagging should reserve plain semver names such as v1.0.0 for milestone-proof commits only."
+    source_refs:
+      - "docs/v1-architecture-brief.md :: Milestone 1 Contract"
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: release points"
+  - note: "Use annotated tags for both milestone tags and the final release tag so each important checkpoint carries tagger metadata and a durable message."
+    source_refs:
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: annotated tags vs lightweight tags"
+  - note: "Keep sandbox mirrors, exports, snapshots, and backup folders out of the tracked tree through ignore rules or an external path. The source docs require those artifacts for audit and recovery, but they do not require them to live in outer Git history."
+    source_refs:
+      - "AGENTS.md :: Repository Mission / Git Discipline"
+      - "docs/v1-architecture-brief.md :: Boundary crossings / Non-Negotiable Constraints"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q12.3"
+  - note: "The final v1.0.0 tag is gated by the proof milestone, not by feature completeness beyond v1 scope. If the repo does not yet contain evidence of 10 stable cycles, rollback, and observability, the final release tag is premature."
+    source_refs:
+      - "docs/v1-architecture-brief.md :: The first release is a proof loop / Milestone 1 Contract"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q15.1-Q15.3"
+validation_checks:
+  - check: "Outer repo initialization"
+    method: "Verify the workspace root reports as a Git work tree."
+    expected_result: "The root returns true for a work-tree check and contains a .git directory."
+    source_refs:
+      - "workspace check :: currently false"
+  - check: "Branch discipline"
+    method: "Inspect the current branch after initialization and after each milestone tag cut."
+    expected_result: "The active outer branch remains main with no long-lived sibling branches required for normal work."
+    source_refs:
+      - "user clarification :: single main local branch"
+      - "AGENTS.md :: Git Discipline"
+  - check: "Ignore boundary"
+    method: "Confirm sandbox mirror, export, snapshot, and backup paths do not appear as staged or tracked files."
+    expected_result: "Outer Git history contains project files and docs only; runtime evidence folders stay ignored or external."
+    source_refs:
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.2, Q12.3"
+      - "AGENTS.md :: Git Discipline"
+  - check: "Tag quality"
+    method: "Inspect each milestone tag and the final release tag as full tag objects rather than bare pointers."
+    expected_result: "Tags are annotated and include an explanatory message tied to the checkpoint they represent."
+    source_refs:
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: annotated tags"
+  - check: "Milestone-release separation"
+    method: "List tags and verify milestone tags use a separate namespace from semver release tags."
+    expected_result: "Intermediate checkpoints do not occupy plain release names such as v1.0.0."
+    source_refs:
+      - "docs/v1-architecture-brief.md :: The first release is a proof loop"
+  - check: "Release gate"
+    method: "Before creating v1.0.0, verify the repo contains written evidence for 10 stable cycles, full logs, rollback, and per-cycle diff or score or decision visibility."
+    expected_result: "The release commit is backed by Milestone 1 proof evidence rather than by intent alone."
+    source_refs:
+      - "docs/v1-architecture-brief.md :: Milestone 1 Contract"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q15.1-Q15.3"
+  - check: "Backup recoverability"
+    method: "Restore the outer repo and mirrored sandbox evidence from backup into a separate path and inspect both."
+    expected_result: "The restored copy preserves outer history and sandbox evidence without relying on the active workspace."
+    source_refs:
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q12.1-Q12.3"
+key_risks:
+  - risk: "Nested sandbox mirrors leak into outer Git history."
+    severity: "high"
+    consequence: "The outer project repo becomes a mixed audit surface, history bloats quickly, and the designed separation between host-controlled project history and sandbox execution history is lost."
+    source_refs:
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.1-Q5.2"
+      - "docs/v1-architecture-brief.md :: Non-Negotiable Constraints"
+  - risk: "Milestone tags and release tags share the same namespace or are created as lightweight tags."
+    severity: "medium"
+    consequence: "Important checkpoints lose provenance and later release archaeology becomes weak or ambiguous."
+    source_refs:
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: annotated tags vs lightweight tags"
+  - risk: "Outer repo workflow drifts into branch sprawl despite the single-main intent."
+    severity: "medium"
+    consequence: "Auditability drops and the repository discipline diverges from the operator expectation stated for this slice."
+    source_refs:
+      - "user clarification :: single main local branch"
+      - "AGENTS.md :: Git Discipline"
+  - risk: "Backups remain in the same active workspace or same single disk location."
+    severity: "high"
+    consequence: "The local-first durability model degenerates into a single failure domain and weakens recovery claims."
+    source_refs:
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q12.3"
+  - risk: "v1.0.0 is tagged before the Milestone 1 proof is documented."
+    severity: "high"
+    consequence: "The release tag overstates project maturity and breaks the meaning of the version boundary."
+    source_refs:
+      - "docs/v1-architecture-brief.md :: Milestone 1 Contract"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q15.1-Q15.3"
+planner_ready_tasks:
+  - id: "RW-01"
+    task: "Initialize the outer Git repository at the workspace root with main as the initial branch."
+    done_when: "The root is a Git work tree and the active branch is main."
+    dependencies: []
+    source_refs:
+      - "workspace check :: not a git repository"
+      - "https://git-scm.com/docs/git-init :: --initial-branch"
+  - id: "RW-02"
+    task: "Add repo-level ignore rules for sandbox mirrors, exports, snapshots, caches, and backup paths before any runtime directories are created."
+    done_when: "The planned local-only paths are ignored and do not appear as tracked files."
+    dependencies:
+      - "RW-01"
+    source_refs:
+      - "workspace search :: no .gitignore found"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.2, Q12.3"
+  - id: "RW-03"
+    task: "Create the initial outer baseline commit containing the current source-of-truth docs and any repository workflow documents introduced for this slice."
+    done_when: "The repo history starts from a traceable baseline tied to the questionnaire-derived architecture."
+    dependencies:
+      - "RW-01"
+      - "RW-02"
+    source_refs:
+      - "AGENTS.md :: Source of truth / Git Discipline"
+  - id: "RW-04"
+    task: "Define and document one milestone tag namespace that is distinct from the semver release namespace."
+    done_when: "Milestone tags have a written naming rule and the rule appears in repo documentation."
+    dependencies:
+      - "RW-03"
+    source_refs:
+      - "docs/v1-architecture-brief.md :: Implementation Order"
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: annotated tags"
+  - id: "RW-05"
+    task: "Define the local path policy for sandbox mirrors and backups so sandbox history remains separate from outer project history."
+    done_when: "Mirror and backup locations are documented as ignored or external and do not overlap tracked source paths."
+    dependencies:
+      - "RW-02"
+    source_refs:
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q5.1-Q5.2, Q12.3"
+  - id: "RW-06"
+    task: "Introduce tracked release-discipline docs: changelog entry point, milestone notes location, and the final v1.0.0 release evidence template."
+    done_when: "The repo has a written place for milestone evidence and final release proof."
+    dependencies:
+      - "RW-03"
+      - "RW-04"
+    source_refs:
+      - "docs/v1-architecture-brief.md :: The first release is a proof loop / Milestone 1 Contract"
+  - id: "RW-07"
+    task: "Cut annotated milestone tags only when the documented checkpoint evidence exists on main."
+    done_when: "Each milestone tag resolves to a main commit and has a corresponding written checkpoint note."
+    dependencies:
+      - "RW-04"
+      - "RW-06"
+    source_refs:
+      - "AGENTS.md :: Git Discipline"
+      - "https://git-scm.com/book/en/v2/Git-Basics-Tagging :: annotated tags"
+  - id: "RW-08"
+    task: "Cut the annotated v1.0.0 tag only after Milestone 1 proof evidence is present and validated."
+    done_when: "The release tag points to a main commit whose docs show 10 stable cycles, full logs, rollback, and per-cycle visibility evidence."
+    dependencies:
+      - "RW-07"
+    source_refs:
+      - "docs/v1-architecture-brief.md :: Milestone 1 Contract"
+      - ".github/live_ai_terrarium_questionnaire_working_file_v_1_0.md :: Q15.1-Q15.3"

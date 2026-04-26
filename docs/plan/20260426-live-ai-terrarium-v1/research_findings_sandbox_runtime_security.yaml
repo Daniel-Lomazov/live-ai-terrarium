@@ -1,0 +1,575 @@
+plan_id: 20260426-live-ai-terrarium-v1
+objective: Produce implementation-ready research for the sandbox runtime and security slice of a local-first Live AI Terrarium v1 project.
+focus_area: sandbox runtime, container boundary, allowed tool execution, filesystem export path, snapshot/rollback hooks, Windows-hosted Docker considerations
+created_at: 2026-04-26
+created_by: GitHub Copilot (GPT-5.4)
+status: completed
+
+slice_goal:
+  summary: >-
+    Deliver a single-Glass-Box runtime where one Docker container hosts one inner-agent
+    sandbox, the sandbox has no direct host access, no direct network, no secrets, and
+    only validated allowlisted tool execution, while every cycle remains inspectable,
+    snapshottable, killable, and manually restorable.
+  selected_contract:
+    - One Docker container per Glass-Box.
+    - Hard boundary with no host filesystem access.
+    - No direct network from inside the sandbox.
+    - No secrets in the sandbox.
+    - Snapshot first, then rollback or kill/restore when needed.
+    - Boundary crossings are controlled API records plus append-only artifact export.
+  implementation_readiness_note: >-
+    The repository is still documentation-only, so this report defines the concrete runtime
+    slice and file layout needed to move into implementation without expanding beyond v1.
+  sources:
+    - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:36-69
+    - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-132
+    - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:204-218
+    - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:251-321
+    - docs/v1-architecture-brief.md:17-30
+    - docs/v1-architecture-brief.md:47-54
+    - docs/v1-architecture-brief.md:100-125
+
+concrete_components:
+  - name: Glass-Box Container Runtime
+    responsibility: >-
+      Own container create/start/pause/unpause/stop/kill/inspect for exactly one sandbox
+      container per Glass-Box and apply the full runtime security profile at launch.
+    boundary_side: outside sandbox
+    required_properties:
+      - Launch from a pinned image digest, not a floating tag.
+      - Run as non-root.
+      - Use no published ports.
+      - Use no direct network.
+      - Apply explicit CPU and memory limits.
+      - Refuse privileged mode, extra devices, and ad hoc capability adds.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:36-69
+      - docs/v1-architecture-brief.md:19-30
+      - docs/v1-architecture-brief.md:47-54
+      - https://docs.docker.com/engine/containers/run/
+      - https://docs.docker.com/engine/network/drivers/none/
+
+  - name: Sandbox Broker
+    responsibility: >-
+      Mediate all sanctioned boundary crossings: tool results, model work requests,
+      cycle logs, metrics, diffs, incident reports, and export intents.
+    boundary_side: split outer control plane plus in-sandbox client
+    required_properties:
+      - No direct internet path from the sandbox.
+      - No credentials inside the sandbox client.
+      - Typed messages only; no raw socket or arbitrary shell escape path.
+      - Outer side owns credentials, rate limits, and audit records.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:46-48
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:311-321
+      - docs/v1-architecture-brief.md:21-25
+      - docs/v1-architecture-brief.md:36-39
+      - docs/v1-architecture-brief.md:100-101
+
+  - name: Allowlisted Tool Runner
+    responsibility: >-
+      Execute only predeclared command specifications against sandbox-local files and tests,
+      with bounded cwd, timeout, environment, stdout/stderr capture, and policy logging.
+    boundary_side: inside sandbox behind typed interface
+    required_properties:
+      - Accept command spec ids, not arbitrary command strings.
+      - Resolve execution to argv directly, not shell-parsed text.
+      - Permit only workspace-local read/write, tests, and approved local utilities.
+      - Reject Docker control, network tools, background daemons, and dynamic download tools.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:204-218
+      - docs/v1-architecture-brief.md:25
+      - docs/v1-architecture-brief.md:51
+
+  - name: Workspace State Store
+    responsibility: >-
+      Hold the mutable sandbox workspace and the in-sandbox Git repository in Docker-managed
+      storage that survives container replacement but is not a general host bind mount.
+    boundary_side: container storage plus host-managed Docker storage
+    required_properties:
+      - Prefer named Docker volume for the workspace root.
+      - Do not bind mount the repo working tree from Windows into the sandbox.
+      - Keep authoritative recovery state outside the sandbox even if the workspace stays warm locally.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-127
+      - docs/v1-architecture-brief.md:27
+      - docs/v1-architecture-brief.md:54
+      - https://docs.docker.com/engine/storage/volumes/
+      - https://docs.docker.com/engine/storage/bind-mounts/
+
+  - name: Export Writer
+    responsibility: >-
+      Move explicit artifacts out of the sandbox to host-controlled storage through a narrow,
+      append-oriented export flow rooted at a dedicated sandbox outbox path.
+    boundary_side: outer control plane
+    required_properties:
+      - Sandbox writes only to an in-container outbox path.
+      - Outer process copies artifacts to host export storage using unique artifact ids.
+      - Export manifests are append-only and independently logged.
+      - Exported artifacts are never rewritten in place by the sandbox.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:41-48
+      - docs/v1-architecture-brief.md:20-21
+      - docs/v1-architecture-brief.md:54
+
+  - name: Snapshot Manager
+    responsibility: >-
+      Capture per-cycle changed-file snapshots, periodic full workspace snapshots, and Git
+      mirror updates in host-controlled storage.
+    boundary_side: outer control plane
+    required_properties:
+      - Record per-cycle file manifest and diff.
+      - Create periodic full workspace archives from Docker-managed storage.
+      - Mirror the in-sandbox Git repo externally.
+      - Preserve failing states before rollback.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-134
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:251-253
+      - docs/v1-architecture-brief.md:27
+      - docs/v1-architecture-brief.md:105-106
+      - https://docs.docker.com/engine/storage/volumes/
+
+  - name: Rollback Controller
+    responsibility: >-
+      Coordinate pause, snapshot, branch-and-continue, rollback, kill, and restore actions from
+      the last stable state using outer authority rather than inner-agent discretion.
+    boundary_side: outside sandbox
+    required_properties:
+      - Manual command path is authoritative in v1.
+      - Evidence preservation happens before destructive action.
+      - Restore uses a fresh container or fresh workspace volume population, not in-place trust.
+      - Incident report creation is part of the failure path.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:88-92
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:129-132
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:246-259
+      - docs/v1-architecture-brief.md:105-106
+      - docs/v1-architecture-brief.md:123-125
+
+  - name: Audit and Incident Recorder
+    responsibility: >-
+      Persist canonical cycle records, append-only logs, hash-chain state, and per-failure incident
+      records outside the sandbox.
+    boundary_side: outside sandbox
+    required_properties:
+      - Cycle record is the source of truth.
+      - Logs are append-only and tamper-evident.
+      - Failure reports are generated per incident and aggregatable across runs.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:67-69
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:251-267
+      - docs/v1-architecture-brief.md:56-71
+      - docs/v1-architecture-brief.md:102-107
+
+recommended_files_and_directories:
+  repo_structure:
+    - path: infra/docker/glassbox/
+      purpose: Image build context, container launch profile, and entrypoint assets for the sandbox runtime.
+    - path: infra/security/
+      purpose: Seccomp profile references, runtime launch policy, command allowlist, and resource-limit definitions.
+    - path: src/glassbox_runtime/
+      purpose: Outer runtime orchestration for lifecycle, export, snapshot, rollback, and incident handling.
+    - path: src/glassbox_contracts/
+      purpose: Typed schemas for tool requests, cycle records, incident reports, snapshot manifests, and export manifests.
+    - path: tests/sandbox_contract/
+      purpose: Contract tests for no-network, no-host-access, allowlist enforcement, snapshot integrity, and rollback behavior.
+    - path: docs/runtime/
+      purpose: Human-readable runtime contract and Windows-host notes derived from the questionnaire.
+  repo_files:
+    - path: infra/docker/glassbox/Dockerfile
+      purpose: Define the sandbox image with non-root user and minimal runtime surface.
+    - path: infra/security/command-specs.yaml
+      purpose: Declare every allowed command as validated structured spec data.
+    - path: infra/security/runtime-profile.yaml
+      purpose: Declare network, user, capabilities, resource, and mount policy for container launch.
+    - path: infra/security/seccomp/glassbox-seccomp.json
+      purpose: Optional explicit seccomp profile file if the default profile proves insufficiently explicit for audits.
+    - path: src/glassbox_contracts/tool_request.schema.json
+      purpose: Validate typed tool requests before they reach the tool runner.
+    - path: src/glassbox_contracts/cycle_record.schema.json
+      purpose: Validate canonical per-cycle record payloads.
+    - path: src/glassbox_contracts/incident_report.schema.json
+      purpose: Validate structured failure reports.
+    - path: docs/runtime/sandbox-runtime-contract.md
+      purpose: Freeze the v1 runtime/security contract in developer-facing prose.
+  host_controlled_state:
+    - path: "%LOCALAPPDATA%/LiveAITerrarium/state/glassboxes/{glassbox_id}/workspace-volume/"
+      purpose: Host-owned reference to the Docker-managed workspace volume identity; not directly writable by the sandbox.
+    - path: "%LOCALAPPDATA%/LiveAITerrarium/state/glassboxes/{glassbox_id}/exports/{run_id}/"
+      purpose: Authoritative exported artifact root outside the sandbox.
+    - path: "%LOCALAPPDATA%/LiveAITerrarium/state/glassboxes/{glassbox_id}/snapshots/full/"
+      purpose: Periodic full workspace snapshots.
+    - path: "%LOCALAPPDATA%/LiveAITerrarium/state/glassboxes/{glassbox_id}/snapshots/cycles/{cycle_id}/"
+      purpose: Per-cycle changed-file manifests and archives.
+    - path: "%LOCALAPPDATA%/LiveAITerrarium/state/glassboxes/{glassbox_id}/git-mirror/"
+      purpose: External mirror of the in-sandbox Git history.
+    - path: "%LOCALAPPDATA%/LiveAITerrarium/state/glassboxes/{glassbox_id}/incidents/"
+      purpose: Incident reports, kill/restore records, and evidence bundles.
+    - path: "%LOCALAPPDATA%/LiveAITerrarium/state/glassboxes/{glassbox_id}/records/"
+      purpose: Canonical cycle records, log chain material, and aggregate run summaries.
+  in_container_layout:
+    - path: /workspace
+      purpose: Sandbox-local writable project root.
+    - path: /workspace/.git
+      purpose: In-sandbox Git repository for branch-and-continue and diff generation.
+    - path: /workspace/.gb/outbox
+      purpose: Narrow in-container export staging path observed by the outer export writer.
+    - path: /workspace/.gb/cycles/{cycle_id}
+      purpose: Cycle-local metadata and temporary working state.
+  sources:
+    - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:41-48
+    - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-132
+    - docs/v1-architecture-brief.md:20-21
+    - docs/v1-architecture-brief.md:27
+    - docs/v1-architecture-brief.md:54
+    - https://docs.docker.com/engine/storage/volumes/
+    - https://docs.docker.com/engine/storage/bind-mounts/
+
+implementation_notes:
+  container_boundary:
+    decision: >-
+      Treat the container as a hardened runtime cell and keep all containment control in the
+      outer orchestrator. The inner agent never receives Docker authority.
+    details:
+      - Use one container per Glass-Box and pin image selection by digest.
+      - Run as non-root and avoid privileged mode, extra devices, and host port publishing.
+      - Use Docker's no-network mode so only loopback exists inside the sandbox.
+      - Keep CPU and memory limits explicit, and do not disable the OOM killer without a hard memory limit.
+      - Keep the default seccomp profile unless a narrower explicit profile is needed for audit clarity; never use seccomp=unconfined in v1.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:36-69
+      - docs/v1-architecture-brief.md:19-30
+      - docs/v1-architecture-brief.md:47-54
+      - https://docs.docker.com/engine/network/drivers/none/
+      - https://docs.docker.com/engine/security/seccomp/
+      - https://docs.docker.com/engine/containers/run/
+
+  allowed_tool_execution:
+    decision: >-
+      Represent every permitted tool as data and execute through a validator-backed runner;
+      do not expose raw shell text as the primary API.
+    details:
+      - Command spec should include id, argv template, cwd policy, environment allowlist, timeout, output budget, and write-scope policy.
+      - Project-specific commands should be predeclared by the outer system; the inner agent cannot invent new binaries at runtime.
+      - Split tools into classes: file operations in sandbox, test/build commands, VCS inspection, model-request descriptors, and export intents.
+      - Reject shell metacharacter expansion, chained commands, background execution, direct network clients, package download tools, and any Docker or system-control utility.
+      - Log both denied and executed tool requests as part of the cycle record.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:204-218
+      - docs/v1-architecture-brief.md:25
+      - docs/v1-architecture-brief.md:51
+
+  filesystem_export_path:
+    decision: >-
+      Use an internal sandbox outbox at /workspace/.gb/outbox and let an outer export writer copy
+      approved artifacts to host-controlled export storage. Do not rely on a general host bind mount
+      for sandbox output.
+    details:
+      - This keeps the questionnaire's controlled export channel while honoring the architecture brief's instruction not to rely on direct host reads or writes from inside the sandbox.
+      - Each export should be content-addressed or uniquely id-addressed and written once.
+      - Export manifests should append new entries rather than mutate old records.
+      - If a narrow mounted export path is ever introduced later, it should be treated as an exception surface and not as the main working filesystem.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:41-48
+      - docs/v1-architecture-brief.md:20-21
+      - docs/v1-architecture-brief.md:54
+      - https://docs.docker.com/engine/storage/bind-mounts/
+      - https://docs.docker.com/engine/storage/volumes/
+
+  snapshot_and_rollback_hooks:
+    decision: >-
+      Keep mutable workspace state in a named Docker volume, snapshot it from the outside, and restore
+      by repopulating fresh runtime state rather than trusting the compromised container instance.
+    details:
+      - Per cycle, persist changed-file manifest, diff, Git HEAD, and acceptance decision.
+      - Periodically archive the full workspace volume to host-controlled snapshot storage.
+      - Use Docker-volume backup/restore patterns from a short-lived helper container instead of host bind mounts to Windows paths.
+      - On stop conditions: pause, snapshot, emit incident report, optionally branch failing state, then rollback or kill/restore.
+      - Manual rollback remains the trust anchor in v1; automatic rollback can remain a later extension.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:88-92
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-134
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:246-253
+      - docs/v1-architecture-brief.md:105-106
+      - docs/v1-architecture-brief.md:123-125
+      - https://docs.docker.com/engine/storage/volumes/
+
+  windows_hosted_docker_considerations:
+    decision: >-
+      Design for Docker Desktop on Windows with a WSL 2 backend as the practical v1 baseline, but treat
+      Windows host access and Docker Desktop limitations as part of the security and operability envelope.
+    details:
+      - Keep WSL current; Docker documents 2.1.5 as minimum and 2.6+ for Enhanced Container Isolation.
+      - Windows can access WSL files via \\wsl$, so the host remains the trusted outer authority; the sandbox boundary is against the inner agent, not against host administrators.
+      - For any unavoidable bind mounts, use Linux filesystem paths rather than /mnt/c-backed Windows paths for performance and inotify behavior.
+      - Bind propagation is not a usable primitive on Docker Desktop, so snapshot/export design should not depend on propagation semantics.
+      - WSL global settings can cap processors, memory, and swap, and autoMemoryReclaim can reduce stale VM memory retention after image builds.
+      - If the interpretation of hard boundary later tightens toward stronger host-to-container isolation, Hyper-V mode or ECI becomes relevant, but that is a host-runtime decision rather than an inner-agent feature.
+    sources:
+      - https://docs.docker.com/desktop/features/wsl/
+      - https://docs.docker.com/desktop/features/wsl/best-practices/
+      - https://docs.docker.com/engine/storage/bind-mounts/
+      - https://learn.microsoft.com/en-us/windows/wsl/wsl-config
+
+validation_checks:
+  - name: Container launch profile check
+    method: Inspect launched container configuration.
+    pass_condition: >-
+      Container runs as non-root, has no published ports, has network mode set to none,
+      has explicit memory/cpu settings, and is not privileged.
+    sources:
+      - docs/v1-architecture-brief.md:47-54
+      - https://docs.docker.com/engine/network/drivers/none/
+      - https://docs.docker.com/engine/containers/run/
+
+  - name: No-host-access check
+    method: Run negative access tests from inside the sandbox against host paths, Docker socket paths, and runtime-control endpoints.
+    pass_condition: >-
+      Sandbox cannot read or write host filesystem paths, cannot access Docker control surfaces,
+      and cannot mutate external log, snapshot, or dashboard sinks.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:57-69
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:209-218
+      - docs/v1-architecture-brief.md:47-54
+
+  - name: Tool allowlist enforcement check
+    method: Submit both valid and invalid tool requests through the typed tool interface.
+    pass_condition: >-
+      Approved command spec ids execute with bounded output, while raw shell text, background execution,
+      Docker/system-control requests, and network-oriented tools are rejected and logged.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:204-218
+      - docs/v1-architecture-brief.md:25
+
+  - name: No-direct-network check
+    method: Execute in-sandbox connectivity probes after launch.
+    pass_condition: >-
+      Only loopback exists inside the sandbox and arbitrary outbound network access fails.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:311-321
+      - docs/v1-architecture-brief.md:24
+      - https://docs.docker.com/engine/network/drivers/none/
+
+  - name: Export channel check
+    method: Stage artifacts in /workspace/.gb/outbox and run the export writer twice with the same artifact id.
+    pass_condition: >-
+      Approved artifacts appear in host-controlled export storage exactly once, manifest entries append,
+      and duplicate ids do not overwrite prior exported artifacts.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:41-48
+      - docs/v1-architecture-brief.md:20-21
+
+  - name: Snapshot integrity check
+    method: Capture a cycle snapshot, then reconstruct the workspace from snapshot material in a clean runtime.
+    pass_condition: >-
+      Restored workspace hash, Git state, and selected file manifest match the recorded cycle state.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-132
+      - docs/v1-architecture-brief.md:27
+      - https://docs.docker.com/engine/storage/volumes/
+
+  - name: Failure response ordering check
+    method: Trigger a forbidden-action or repeated-failure condition in a controlled test run.
+    pass_condition: >-
+      System pauses first, snapshots before destructive action, emits an incident record,
+      and only then branches or rolls back or kills/restores according to severity.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:246-259
+      - docs/v1-architecture-brief.md:105-106
+
+  - name: Windows-host performance and path check
+    method: Compare any bind-mounted Linux-path workflow against a /mnt/c-backed workflow in the same host setup.
+    pass_condition: >-
+      Runtime documentation and guardrails steer workspace-related mounts to Linux filesystem paths,
+      and implementation does not depend on bind propagation features unsupported on Docker Desktop.
+    sources:
+      - https://docs.docker.com/desktop/features/wsl/best-practices/
+      - https://docs.docker.com/engine/storage/bind-mounts/
+
+key_risks:
+  - risk: No-network plus external-gateway requirement leaves the broker transport under-specified.
+    impact: High
+    why_it_exists: >-
+      The questionnaire requires no direct network in the sandbox, while model requests and observability still
+      need to cross the boundary through controlled channels.
+    consequence: >-
+      If the broker path is not defined early, implementation may drift into forbidden socket/http shortcuts.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:46-48
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:311-321
+      - docs/v1-architecture-brief.md:20-25
+
+  - risk: Windows-hosted WSL 2 does not make the host invisible to host administrators.
+    impact: High
+    why_it_exists: >-
+      Docker Desktop documents that WSL follows WSL's existing security model and Windows can access WSL files.
+    consequence: >-
+      The sandbox boundary is strong against the inner agent but not against a hostile or compromised Windows host.
+    sources:
+      - https://docs.docker.com/desktop/features/wsl/
+
+  - risk: Bind mounting Windows-backed paths into Linux containers weakens both performance and boundary clarity.
+    impact: High
+    why_it_exists: >-
+      Docker documents better performance and correct inotify behavior when bind-mounted files live in the Linux filesystem,
+      not under /mnt/c.
+    consequence: >-
+      A naive repo bind mount from Windows can create slow file IO, inconsistent file-watch behavior, and a broader host exposure surface.
+    sources:
+      - https://docs.docker.com/desktop/features/wsl/best-practices/
+      - https://docs.docker.com/engine/storage/bind-mounts/
+
+  - risk: Append-only export semantics are not guaranteed by a plain writable directory alone.
+    impact: Medium
+    why_it_exists: >-
+      Filesystem permissions by themselves do not create an auditable append-only channel across Docker Desktop and Windows.
+    consequence: >-
+      Without host-side idempotency and manifest rules, exported artifacts can be overwritten or silently replaced.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:46-48
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:67-69
+      - docs/v1-architecture-brief.md:20-21
+
+  - risk: Snapshot volume size and restore time can grow quickly even in a single-sandbox v1.
+    impact: Medium
+    why_it_exists: >-
+      The selected design keeps per-cycle file snapshots, periodic full snapshots, and Git mirroring.
+    consequence: >-
+      If cadence and retention are not bounded, local-first runs will become slow and storage-heavy before v1 is proven.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-134
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:267-281
+      - docs/v1-architecture-brief.md:27
+
+  - risk: Debug-time privilege creep can silently void the boundary.
+    impact: High
+    why_it_exists: >-
+      Docker makes it easy to add --privileged, devices, or unconfined seccomp during troubleshooting.
+    consequence: >-
+      A runtime that passes tests in a permissive mode can later fail the actual v1 security contract.
+    sources:
+      - docs/v1-architecture-brief.md:47-54
+      - https://docs.docker.com/engine/containers/run/
+      - https://docs.docker.com/engine/security/seccomp/
+
+planner_ready_tasks:
+  - id: SBOX-01
+    title: Freeze the sandbox runtime contract
+    scope:
+      - Define lifecycle states for create, start, pause, snapshot, rollback, kill, and restore.
+      - Define the runtime-profile document fields for network, user, resource, mount, and capability policy.
+      - Define the exact boundary crossings owned by the sandbox broker.
+    dependencies: []
+    done_when:
+      - One contract document exists for runtime policy.
+      - One typed schema exists for cycle records and incident reports.
+      - No lifecycle action remains implicit or UI-only.
+    sources:
+      - docs/v1-architecture-brief.md:17-30
+      - docs/v1-architecture-brief.md:123-125
+
+  - id: SBOX-02
+    title: Define and validate the command allowlist model
+    scope:
+      - Create the command-spec schema.
+      - Define execution guardrails for cwd, timeout, env, output, and write scope.
+      - Define negative cases for forbidden commands and raw shell text.
+    dependencies:
+      - SBOX-01
+    done_when:
+      - Every allowed command is declared as structured data.
+      - No raw command-line API remains in the inner-agent interface.
+      - Denied requests are logged with reasons.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:204-218
+      - docs/v1-architecture-brief.md:25
+
+  - id: SBOX-03
+    title: Establish workspace storage and export layout
+    scope:
+      - Select named-volume workspace layout.
+      - Define in-container outbox path and host export root.
+      - Define export manifest append rules and idempotency rules.
+    dependencies:
+      - SBOX-01
+    done_when:
+      - Workspace no longer depends on a repo bind mount.
+      - Export path is explicitly defined inside and outside the sandbox.
+      - Export overwrite behavior is impossible by contract.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:41-48
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-127
+      - https://docs.docker.com/engine/storage/volumes/
+
+  - id: SBOX-04
+    title: Define snapshot, mirror, and restore mechanics
+    scope:
+      - Define per-cycle snapshot manifest contents.
+      - Define periodic full workspace snapshot cadence.
+      - Define external Git mirror update points.
+      - Define restore flow into fresh runtime state.
+    dependencies:
+      - SBOX-03
+    done_when:
+      - Full restore path is documented end-to-end.
+      - Branch-and-continue is explicit in the failure flow.
+      - External mirror ownership is outside the sandbox.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:120-134
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:246-253
+      - docs/v1-architecture-brief.md:27
+      - docs/v1-architecture-brief.md:105-106
+
+  - id: SBOX-05
+    title: Define failure triggers and incident ordering
+    scope:
+      - Enumerate stop conditions.
+      - Define response ordering and branching conditions.
+      - Define incident report schema and required evidence bundle fields.
+    dependencies:
+      - SBOX-01
+      - SBOX-04
+    done_when:
+      - Every stop condition maps to one deterministic response path.
+      - Snapshot-first ordering is preserved for all destructive actions.
+      - Failure records can feed both per-incident and aggregate views.
+    sources:
+      - .github/live_ai_terrarium_questionnaire_working_file_v_1_0.md:246-259
+      - docs/v1-architecture-brief.md:105-106
+
+  - id: SBOX-06
+    title: Document Windows-hosted Docker guardrails
+    scope:
+      - Define supported Docker Desktop backend assumptions.
+      - Define Linux-path versus Windows-path mount policy.
+      - Define WSL version and host-configuration expectations for local development.
+    dependencies:
+      - SBOX-03
+    done_when:
+      - Runtime docs state that workspace mounts should not use /mnt/c.
+      - WSL version floor and memory guidance are documented.
+      - Docker Desktop limitations that affect the runtime are called out explicitly.
+    sources:
+      - https://docs.docker.com/desktop/features/wsl/
+      - https://docs.docker.com/desktop/features/wsl/best-practices/
+      - https://learn.microsoft.com/en-us/windows/wsl/wsl-config
+
+  - id: SBOX-07
+    title: Build the sandbox contract test matrix
+    scope:
+      - Define positive and negative tests for boundary, allowlist, export, snapshot, rollback, and Windows-host assumptions.
+      - Define expected inspection points from Docker and from canonical cycle records.
+    dependencies:
+      - SBOX-02
+      - SBOX-03
+      - SBOX-04
+      - SBOX-05
+      - SBOX-06
+    done_when:
+      - Every non-negotiable runtime constraint has at least one contract test.
+      - Tests cover both success and denial paths.
+      - The matrix is sufficient to gate Milestone 1 runtime acceptance.
+    sources:
+      - docs/v1-architecture-brief.md:47-54
+      - docs/v1-architecture-brief.md:100-107
