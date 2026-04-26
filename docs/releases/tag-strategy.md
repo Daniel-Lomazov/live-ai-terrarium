@@ -5,7 +5,7 @@
 This document defines the outer-repository tag and branch policy for Live AI Terrarium v1.
 It keeps proof checkpoints distinct from the final release tag and keeps sandbox-inner Git history out of the outer repository graph.
 
-The repository currently reflects this policy with the annotated tags `milestone/v1-proof-complete` and `v1.0.0` on `main`.
+The repository currently reflects this policy with the annotated tags `milestone/v1-proof-complete`, `v1.0.0`, and `v1.0.1` on `main`.
 
 ## Outer Repository Rules
 
@@ -19,13 +19,13 @@ The repository currently reflects this policy with the annotated tags `milestone
 | Ref type | Name pattern | Required form | Created from | Purpose |
 | --- | --- | --- | --- | --- |
 | Milestone tag | `milestone/v1-<checkpoint-slug>` | Annotated tag | `main` | Marks proof checkpoints and architecture-complete states without implying a semver release. |
-| Release tag | `v1.0.0` | Annotated tag | `main` | Marks the first Milestone 1 proof release after all required evidence is present. |
+| Release tag | `v<major>.<minor>.<patch>` | Annotated tag | `main` | Marks proof-backed semver releases such as `v1.0.0` and follow-up maintenance releases such as `v1.0.1`. |
 | Outer branch | `main` | Branch | n/a | Carries the auditable outer project history for v1. |
 
 ## Annotated Tag Requirement
 
 - Milestone tags must be annotated tags.
-- The final `v1.0.0` tag must be an annotated tag.
+- Semver release tags such as `v1.0.0` and `v1.0.1` must be annotated tags.
 - Lightweight tags are not valid for milestone or release markers in this repository.
 - Each annotated tag message should name the checkpoint, the evidence docs, and the reason the commit is releasable.
 
@@ -49,18 +49,19 @@ Examples:
 
 Milestone tags are not releases. They are durable evidence markers that show the outer `main` branch reached a named checkpoint.
 
-## Final Release Tag
+## Current Semver Release Tags
 
-The only v1 final release tag defined by the current plan is:
+The repository currently carries these semver release tags:
 
 - `v1.0.0`
+- `v1.0.1`
 
-Rules for `v1.0.0`:
+Rules for semver release tags:
 
-- It identifies the current public Milestone 1 proof release.
-- It must point to a commit already on `main`.
-- It must be annotated.
-- It must not be created until the repository contains the required proof bundle and release notes.
+- `v1.0.0` remains the foundational Milestone 1 proof release.
+- Follow-up maintenance tags such as `v1.0.1` must point to commits already on `main`.
+- Every semver release tag must be annotated.
+- No semver release tag should be created until the repository contains the matching release notes and supporting evidence for that release scope.
 
 ## Gate For Milestone Tags
 
@@ -71,9 +72,9 @@ A milestone tag is valid only when:
 - The tag message names the checkpoint and the backing evidence.
 - Any sandbox branch evidence is linked as mirrored evidence, not imported as outer Git history.
 
-## Gate For `v1.0.0`
+## Gate For Proof-Backed Semver Releases
 
-`v1.0.0` is valid only when the outer `main` commit documents the Milestone 1 proof contract:
+The initial proof release `v1.0.0` is valid only when the outer `main` commit documents the Milestone 1 proof contract:
 
 - 10 stable cycles completed.
 - Zero unrecoverable failures.
@@ -83,13 +84,13 @@ A milestone tag is valid only when:
 - Reversibility evidence includes branch-and-continue evidence and manual rollback evidence.
 - Release notes exist under `docs/releases/v1.0.0.md`.
 
-`v1.0.0` is premature if the repository cannot point to the proof evidence above.
+Follow-up maintenance releases such as `v1.0.1` must continue to point back to that proof baseline and clearly document what changed beyond it.
 
 ## Outer Versus Sandbox Branch Discipline
 
 | Surface | Allowed refs | What it is for | What it must not do |
 | --- | --- | --- | --- |
-| Outer repository | `main`, annotated milestone tags, annotated `v1.0.0` | Product history, docs, release evidence, operator-facing proof summaries | Carry sandbox-inner branch graphs or mirrored sandbox refs |
+| Outer repository | `main`, annotated milestone tags, annotated semver release tags such as `v1.0.0` and `v1.0.1` | Product history, docs, release evidence, operator-facing proof summaries | Carry sandbox-inner branch graphs or mirrored sandbox refs |
 | Sandbox inner Git repo | Run-local branches created by branch-and-continue | Preserve failing or exploratory states inside the Glass-Box lifecycle | Become the authoritative product history |
 | External sandbox mirror | Mirrored copies of sandbox refs and evidence | Preserve reversibility evidence outside the sandbox boundary | Pollute the outer repo branch graph or release namespace |
 
@@ -118,9 +119,9 @@ To create or verify a milestone tag:
 3. Confirm the tag name uses `milestone/v1-<checkpoint-slug>`.
 4. Confirm the tag will be annotated.
 
-To create or verify `v1.0.0`:
+To create or verify a semver release tag:
 
 1. Confirm the proof bundle on `main` satisfies the Milestone 1 contract.
-2. Confirm `docs/releases/v1.0.0.md` summarizes the proof evidence.
+2. Confirm the matching file under `docs/releases/` summarizes the proof evidence or maintenance scope for that exact tag.
 3. Confirm rollback and branch-and-continue evidence are referenced as mirrored evidence.
 4. Confirm the tag will be annotated and created from `main`.

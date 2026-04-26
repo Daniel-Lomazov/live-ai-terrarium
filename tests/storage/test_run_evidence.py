@@ -119,7 +119,7 @@ def test_manifest_must_exist_before_cycle_one_linkage_and_is_immutable(tmp_path)
         container_image_digest="sha256:" + ("b" * 64),
         runtime_profile=make_hash_snapshot("c"),
         command_catalog=make_hash_snapshot("d"),
-        supplemental_labels={"release_tag": "v1.0.0", "image_name": "glassbox:v1"},
+        supplemental_labels={"release_tag": "v1.0.1", "image_name": "glassbox:v1"},
     )
 
     assert storage.run_manifest_file(run_scope).exists()
@@ -156,7 +156,7 @@ def test_manifest_captures_required_immutable_build_identity_and_labels(tmp_path
         container_image_digest="sha256:" + ("f" * 64),
         runtime_profile=HashOrSnapshot(snapshot_ref=ArtifactRef(uuid=uuid4(), locator="runtime/profile.yaml")),
         command_catalog=HashOrSnapshot(snapshot_ref=ArtifactRef(uuid=uuid4(), locator="security/command-specs.yaml")),
-        supplemental_labels={"release_tag": "v1.0.0", "image_name": "glassbox:v1"},
+        supplemental_labels={"release_tag": "v1.0.1", "image_name": "glassbox:v1"},
     )
 
     loaded = evidence.read_run_manifest(run_scope)
@@ -170,7 +170,7 @@ def test_manifest_captures_required_immutable_build_identity_and_labels(tmp_path
     assert loaded.runtime_profile.snapshot_ref is not None
     assert loaded.command_catalog.snapshot_ref is not None
     assert loaded.supplemental_labels == {
-        "release_tag": "v1.0.0",
+        "release_tag": "v1.0.1",
         "image_name": "glassbox:v1",
     }
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "live-ai-terrarium"
-version = "1.0.0"
+version = "1.0.1"
 description = "Proof-gated local-first Glass-Box orchestration for Live AI Terrarium."
 requires-python = ">=3.12"
 dependencies = [

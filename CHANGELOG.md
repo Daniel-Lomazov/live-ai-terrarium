@@ -2,19 +2,30 @@
 
 All notable changes to this repository will be tracked in this file.
 
-The outer repository follows the validated plan in `docs/plan/20260426-live-ai-terrarium-v1/plan.md`: work lands on `main`, milestone tags stay separate from release tags, and the final `v1.0.0` tag is reserved for the Milestone 1 proof bundle.
+The outer repository follows the validated plan in `docs/plan/20260426-live-ai-terrarium-v1/plan.md`: work lands on `main`, milestone tags stay separate from release tags, and semver releases remain backed by written proof and release evidence.
 
 ## [Unreleased]
+
+No unreleased changes.
+
+## [1.0.1] - 2026-04-27
+
+Public-facing follow-up release on top of the proof-backed `v1.0.0` milestone baseline.
 
 ### Added
 
 - Root `README.md` with public-facing setup, validation, and dashboard preview guidance.
+- `docs/releases/v1.0.1.md` to document the maintenance release scope and validation state.
 
 ### Changed
 
-- Synced package metadata and advertised API version strings to `1.0.0`.
-- Refreshed milestone and release guidance docs to reflect the current tagged repository state.
-- Replaced stale wave-specific sample release tags in preview data and tests with `v1.0.0`.
+- Synced package metadata and advertised API version strings to `1.0.1`.
+- Refreshed release guidance docs so the repository no longer describes `v1.0.0` as a future-only or singular semver state.
+- Updated preview data and validation fixtures to surface `v1.0.1` consistently.
+
+### Validation
+
+- Focused public-surface validation: `48 passed in 4.01s`
 
 ## [1.0.0] - 2026-04-26
 

@@ -9,7 +9,8 @@ In the current v1 plan, releases are gated proof events, not generic version bum
 
 - Milestone tags live under `milestone/v1-*`.
 - Final releases use plain semver tags.
-- The final v1 release tag defined by the current plan is `v1.0.0`.
+- The initial proof-backed v1 release tag defined by the current plan is `v1.0.0`.
+- Follow-up maintenance releases may advance semver, such as `v1.0.1`, when they stay aligned with the same proof-backed repository discipline.
 - Milestone tags and release tags must remain distinct.
 
 ## Annotated Release Rule
@@ -26,11 +27,11 @@ Use this directory for:
 - proof-release summaries,
 - release evidence indexes that explain why the tagged commit is releasable.
 
-The first release note document is `v1.0.0.md`, and it is the current release note used for the published GitHub release.
+Published release note documents currently include `v1.0.0.md` and `v1.0.1.md`.
 
-## Release Gate For `v1.0.0`
+## Release Gate For Semver Releases
 
-The release note for `v1.0.0` should summarize the proof state that justifies the final annotated release tag:
+Each release note should summarize the proof state or maintenance scope that justifies its annotated semver tag:
 
 - 10 stable cycles completed,
 - zero unrecoverable failures,
@@ -39,14 +40,14 @@ The release note for `v1.0.0` should summarize the proof state that justifies th
 - per-cycle diff, score, and decision visibility available,
 - reversibility evidence preserved, including branch-and-continue and manual rollback evidence.
 
-If those items are not backed by evidence on outer `main`, `v1.0.0` is not ready.
+If those items are not backed by evidence on outer `main`, the semver release is not ready.
 
 ## Release Workflow
 
 1. Confirm the proof bundle exists on outer `main`.
 2. Confirm the matching milestone documentation is already complete.
-3. Write or refresh `docs/releases/v1.0.0.md` against the exact `main` commit that the release tag will represent.
-4. Create or verify the annotated `v1.0.0` tag from that same `main` commit.
+3. Write or refresh the matching file under `docs/releases/` against the exact `main` commit that the release tag will represent.
+4. Create or verify the annotated semver tag from that same `main` commit.
 
 This keeps the release doc, the evidence, and the tagged commit aligned.
 
@@ -64,6 +65,6 @@ Practical rules:
 
 ## Current Policy State
 
-- `docs/releases/v1.0.0.md` is the current release note document for the repository.
-- `v1.0.0` is the current annotated release tag and GitHub Release.
+- `docs/releases/v1.0.0.md` and `docs/releases/v1.0.1.md` are the current published release notes for the repository.
+- `v1.0.0` and `v1.0.1` are the current annotated semver release tags.
 - Future semver releases should keep the same annotated-tag rule and proof-evidence discipline.

@@ -2,7 +2,9 @@
 
 Live AI Terrarium is a local-first Glass-Box orchestration project built around one strict rule: proof comes before control.
 
-The current `v1.0.0` release delivers a single-host Milestone 1 baseline with:
+The current `v1.0.1` public release carries forward the `v1.0.0` proof baseline with cleaner package metadata, clearer public-facing docs, and a more usable repository front door.
+
+The repository currently delivers a single-host Milestone 1 baseline with:
 
 - one hardened sandbox runtime boundary
 - one shared command path across API, CLI/TUI, and Streamlit
@@ -27,11 +29,13 @@ The repository is organized around a small number of proof-critical slices:
 The repository has been published with:
 
 - milestone tag `milestone/v1-proof-complete`
-- release tag `v1.0.0`
+- foundational proof release tag `v1.0.0`
+- current public release tag `v1.0.1`
 
-The proof-backed release bundle lives in:
+The release and proof bundle lives in:
 
 - `docs/milestones/m1-proof-checklist.md`
+- `docs/releases/v1.0.1.md`
 - `docs/releases/v1.0.0.md`
 - `docs/test-evidence/browser-dashboard-validation.md`
 - `docs/test-evidence/browser-dashboard-visual-baseline.md`

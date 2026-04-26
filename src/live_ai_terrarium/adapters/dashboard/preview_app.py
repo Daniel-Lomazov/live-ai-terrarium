@@ -45,7 +45,7 @@ def build_preview_manifest() -> ReproducibilityManifestSummary:
         outer_repo_commit_sha="a" * 40,
         container_image_digest="sha256:" + ("b" * 64),
         limits={"max_cycles": 10, "max_cpu_percent": 90},
-        release_tag="v1.0.0",
+        release_tag="v1.0.1",
         image_name="glassbox:v1",
         runtime_profile_locator="infra/security/runtime-profile.yaml",
         runtime_profile_sha256=None,

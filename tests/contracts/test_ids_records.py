@@ -106,7 +106,7 @@ def test_run_record_requires_reproducibility_inputs_and_supports_stable_refs() -
         model_version="gpt-5.4",
         outer_repo_commit_sha="a" * 40,
         container_image_digest="sha256:" + ("b" * 64),
-        release_tag="v1.0.0",
+        release_tag="v1.0.1",
         image_name_label="live-ai-terrarium:dev",
         runtime_profile=HashOrSnapshot(sha256="c" * 64),
         command_catalog=HashOrSnapshot(
