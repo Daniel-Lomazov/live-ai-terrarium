@@ -103,7 +103,7 @@ def make_run_record(run: RunScope, *, bundle_locator: str) -> RunRecord:
         model_version="gpt-5.4",
         outer_repo_commit_sha="a" * 40,
         container_image_digest="sha256:" + ("b" * 64),
-        release_tag="milestone/v1-wave8",
+        release_tag="v1.0.0",
         image_name_label="glassbox:v1",
         runtime_profile=make_hash_snapshot("c"),
         command_catalog=make_hash_snapshot("d"),
@@ -284,7 +284,7 @@ def test_ten_cycle_proof_harness_emits_inventory_for_ten_stable_cycles(tmp_path:
         container_image_digest="sha256:" + ("b" * 64),
         runtime_profile=make_hash_snapshot("c"),
         command_catalog=make_hash_snapshot("d"),
-        supplemental_labels={"release_tag": "milestone/v1-wave8", "image_name": "glassbox:v1"},
+        supplemental_labels={"release_tag": "v1.0.0", "image_name": "glassbox:v1"},
     )
     bundle = log_capture.ensure_bundle(run, created_at="2026-04-26T09:59:59Z")
     run_record = make_run_record(run, bundle_locator=bundle.artifact_ref.locator)

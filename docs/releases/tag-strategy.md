@@ -5,7 +5,7 @@
 This document defines the outer-repository tag and branch policy for Live AI Terrarium v1.
 It keeps proof checkpoints distinct from the final release tag and keeps sandbox-inner Git history out of the outer repository graph.
 
-LAT-004 writes the policy only. It does not create tags or commits.
+The repository currently reflects this policy with the annotated tags `milestone/v1-proof-complete` and `v1.0.0` on `main`.
 
 ## Outer Repository Rules
 
@@ -57,14 +57,14 @@ The only v1 final release tag defined by the current plan is:
 
 Rules for `v1.0.0`:
 
-- It is reserved for the Milestone 1 proof release.
+- It identifies the current public Milestone 1 proof release.
 - It must point to a commit already on `main`.
 - It must be annotated.
 - It must not be created until the repository contains the required proof bundle and release notes.
 
 ## Gate For Milestone Tags
 
-Before cutting a milestone tag later:
+A milestone tag is valid only when:
 
 - The relevant milestone document under `docs/milestones/` is present on `main`.
 - The commit on `main` contains the evidence summary for that checkpoint.
@@ -73,7 +73,7 @@ Before cutting a milestone tag later:
 
 ## Gate For `v1.0.0`
 
-Before cutting `v1.0.0` later, the outer `main` commit must document the Milestone 1 proof contract:
+`v1.0.0` is valid only when the outer `main` commit documents the Milestone 1 proof contract:
 
 - 10 stable cycles completed.
 - Zero unrecoverable failures.
@@ -111,14 +111,14 @@ This keeps sandbox branch evidence available without making it part of the outer
 
 ## Operational Checklist
 
-When a later task is ready to create a milestone tag:
+To create or verify a milestone tag:
 
 1. Confirm the checkpoint commit is already on `main`.
 2. Confirm the matching milestone doc exists under `docs/milestones/`.
 3. Confirm the tag name uses `milestone/v1-<checkpoint-slug>`.
 4. Confirm the tag will be annotated.
 
-When a later task is ready to create `v1.0.0`:
+To create or verify `v1.0.0`:
 
 1. Confirm the proof bundle on `main` satisfies the Milestone 1 contract.
 2. Confirm `docs/releases/v1.0.0.md` summarizes the proof evidence.

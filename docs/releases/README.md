@@ -26,7 +26,7 @@ Use this directory for:
 - proof-release summaries,
 - release evidence indexes that explain why the tagged commit is releasable.
 
-The first expected release note document is `v1.0.0.md`, created by a later task when the Milestone 1 proof bundle is complete.
+The first release note document is `v1.0.0.md`, and it is the current release note used for the published GitHub release.
 
 ## Release Gate For `v1.0.0`
 
@@ -45,8 +45,8 @@ If those items are not backed by evidence on outer `main`, `v1.0.0` is not ready
 
 1. Confirm the proof bundle exists on outer `main`.
 2. Confirm the matching milestone documentation is already complete.
-3. Write `docs/releases/v1.0.0.md` against that exact `main` commit.
-4. Create the annotated `v1.0.0` tag later from the same `main` commit.
+3. Write or refresh `docs/releases/v1.0.0.md` against the exact `main` commit that the release tag will represent.
+4. Create or verify the annotated `v1.0.0` tag from that same `main` commit.
 
 This keeps the release doc, the evidence, and the tagged commit aligned.
 
@@ -64,6 +64,6 @@ Practical rules:
 
 ## Current Policy State
 
-- LAT-004 creates the release-discipline docs only.
-- LAT-004 does not create release tags.
-- The final annotated `v1.0.0` tag is a later action, gated by the Milestone 1 proof bundle.
+- `docs/releases/v1.0.0.md` is the current release note document for the repository.
+- `v1.0.0` is the current annotated release tag and GitHub Release.
+- Future semver releases should keep the same annotated-tag rule and proof-evidence discipline.

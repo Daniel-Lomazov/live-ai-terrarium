@@ -10,7 +10,7 @@ Milestone documents support milestone tags. They are not release notes.
 ## Tag Relationship
 
 - Every outer milestone tag uses the namespace `milestone/v1-<checkpoint-slug>`.
-- Every milestone tag is an annotated tag created later from a commit already on `main`.
+- Every milestone tag is an annotated tag created from a commit already on `main`.
 - A milestone document must exist before its matching milestone tag is created.
 - Milestone tags are distinct from the final release tag `v1.0.0`.
 
@@ -23,7 +23,7 @@ Use this directory for checkpoint documents such as:
 - proof-complete checklists,
 - evidence summaries that justify a named milestone tag.
 
-The first expected proof-oriented document is `m1-proof-checklist.md`, created by a later task.
+The first proof-oriented document is `m1-proof-checklist.md`, and its matching milestone tag already exists as `milestone/v1-proof-complete`.
 
 ## Minimum Content For A Milestone Doc
 
@@ -43,7 +43,7 @@ Milestone documents are part of the outer repository workflow:
 1. Update the milestone document on outer `main`.
 2. Link the checkpoint to the proof evidence already captured by the project.
 3. Review whether the checkpoint is a milestone tag or a final release candidate.
-4. Create the annotated milestone tag later from `main` when the checkpoint is actually satisfied.
+4. Create the annotated milestone tag from `main` when the checkpoint is actually satisfied, or verify the existing tag still points at the documented checkpoint.
 
 The document comes first. The tag is only the durable marker for that documented state.
 
@@ -76,6 +76,6 @@ Quick rule:
 
 ## Current Policy State
 
-- LAT-004 creates this discipline documentation only.
-- LAT-004 does not create milestone tags.
-- Later tasks may add milestone documents and cut annotated milestone tags once proof evidence exists on `main`.
+- `m1-proof-checklist.md` is the current milestone proof document for the repository.
+- `milestone/v1-proof-complete` is the current annotated milestone tag on `main`.
+- Future milestone checkpoints should keep using the same annotated-tag rule and namespace.

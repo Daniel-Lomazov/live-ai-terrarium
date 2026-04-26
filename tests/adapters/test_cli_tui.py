@@ -63,7 +63,7 @@ def make_run_record(run: RunScope) -> RunRecord:
         model_version="gpt-5.4",
         outer_repo_commit_sha="a" * 40,
         container_image_digest="sha256:" + ("b" * 64),
-        release_tag="milestone/v1-wave7",
+        release_tag="v1.0.0",
         image_name_label="glassbox:v1",
         runtime_profile=HashOrSnapshot(snapshot_ref=make_artifact_ref("security/runtime-profile.yaml")),
         command_catalog=HashOrSnapshot(snapshot_ref=make_artifact_ref("security/command-specs.yaml")),
@@ -120,7 +120,7 @@ def make_manifest(run: RunScope) -> RunStartManifest:
         container_image_digest="sha256:" + ("b" * 64),
         runtime_profile=HashOrSnapshot(snapshot_ref=make_artifact_ref("security/runtime-profile.yaml")),
         command_catalog=HashOrSnapshot(snapshot_ref=make_artifact_ref("security/command-specs.yaml")),
-        supplemental_labels={"release_tag": "milestone/v1-wave7", "image_name": "glassbox:v1"},
+        supplemental_labels={"release_tag": "v1.0.0", "image_name": "glassbox:v1"},
     )
 
 

@@ -6,7 +6,15 @@ The outer repository follows the validated plan in `docs/plan/20260426-live-ai-t
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- Root `README.md` with public-facing setup, validation, and dashboard preview guidance.
+
+### Changed
+
+- Synced package metadata and advertised API version strings to `1.0.0`.
+- Refreshed milestone and release guidance docs to reflect the current tagged repository state.
+- Replaced stale wave-specific sample release tags in preview data and tests with `v1.0.0`.
 
 ## [1.0.0] - 2026-04-26
 

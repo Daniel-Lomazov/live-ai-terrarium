@@ -38,7 +38,7 @@ def make_manifest_summary() -> ReproducibilityManifestSummary:
         outer_repo_commit_sha="a" * 40,
         container_image_digest="sha256:" + ("b" * 64),
         limits={"max_cycles": 10, "max_cpu_percent": 90},
-        release_tag="milestone/v1-wave7",
+        release_tag="v1.0.0",
         image_name="glassbox:v1",
         runtime_profile_locator="security/runtime-profile.yaml",
         runtime_profile_sha256=None,

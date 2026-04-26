@@ -3,9 +3,9 @@
 ## Status
 
 - Milestone name: Milestone 1 proof-complete
-- Intended milestone tag: `milestone/v1-proof-complete`
-- Outer `main` checkpoint: the commit that contains the Wave 8 proof harness, browser evidence, and release-bundle docs
-- Purpose: document why the outer `main` branch is ready for the proof-complete milestone tag and the final `v1.0.0` release tag
+- Milestone tag: `milestone/v1-proof-complete` (created on `main`)
+- Outer `main` checkpoint: proof-backed release-bundle commit `1a04b57`, later carried forward on `main`
+- Purpose: document why the outer `main` branch qualified for the proof-complete milestone tag and the final `v1.0.0` release tag
 
 ## Gate Summary
 
@@ -102,4 +102,4 @@ The proof bundle references sandbox-inner branch-and-continue evidence only as m
 
 - None for the Milestone 1 proof-complete checkpoint.
 
-The remaining action after this checklist is the annotated milestone tag and the final annotated `v1.0.0` tag on `main`.
+This checklist is now the durable evidence record for the annotated milestone tag `milestone/v1-proof-complete` and the annotated release tag `v1.0.0` on `main`.
