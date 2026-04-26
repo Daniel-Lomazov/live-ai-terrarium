@@ -8,7 +8,18 @@ objective: >-
   reproducibility.
 created_at: 2026-04-26T00:00:00Z
 created_by: GitHub Copilot GPT-5.4
-status: pending
+status: completed
+completed_at: 2026-04-27T00:01:13+03:00
+completed_by: GitHub Copilot GPT-5.4
+completion_summary:
+  release_commit: 1a04b57
+  milestone_tags:
+    - milestone/v1-proof-complete
+  release_tags:
+    - v1.0.0
+  notes:
+    - Wave 9 release-proof bundle was committed on main as docs(release): add milestone proof bundle.
+    - The annotated milestone and final release tags both point at the proof-backed release commit on main.
 research_confidence: high
 sources:
   - AGENTS.md
@@ -498,7 +509,9 @@ tasks:
       - constraints
       - docs
     priority: high
-    status: pending
+    status: completed
+    completed_at: 2026-04-27T00:01:13+03:00
+    completion_ref: 1a04b57
     flags:
       flaky: false
       retries_used: 0
@@ -612,7 +625,9 @@ tasks:
       - repo-discipline
       - local-workflow
     priority: high
-    status: pending
+    status: completed
+    completed_at: 2026-04-27T00:01:13+03:00
+    completion_ref: v1.0.0
     flags:
       flaky: false
       retries_used: 0
