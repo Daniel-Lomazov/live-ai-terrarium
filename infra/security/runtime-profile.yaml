@@ -1,0 +1,115 @@
+apiVersion: live-ai-terrarium/v1alpha1
+kind: GlassBoxRuntimeProfile
+metadata:
+  name: glassbox-hardened-v1
+  plan: 20260426-live-ai-terrarium-v1
+  task: LAT-007
+spec:
+  image:
+    build:
+      context: infra/docker/glassbox
+      dockerfile: infra/docker/glassbox/Dockerfile
+    runtime_reference_policy:
+      require_image_digest: true
+      allow_latest_tag: false
+
+  topology:
+    instances_per_glassbox: 1
+    published_ports: []
+    allow_port_publish: false
+
+  identity:
+    user: glassbox
+    uid: 10001
+    gid: 10001
+    workdir: /workspace
+
+  network:
+    mode: none
+    allow_loopback_only: true
+    allow_dns: false
+    allow_outbound: false
+    attachable_networks: []
+
+  mounts:
+    writable:
+      - type: volume
+        source_template: glassbox-{glassbox_id}-workspace
+        target: /workspace
+        read_only: false
+        purpose: sandbox workspace and in-container git state
+    tmpfs:
+      - target: /tmp
+        size: 64m
+      - target: /run
+        size: 16m
+    denied:
+      bind_mounts: true
+      docker_socket: true
+      host_devices: true
+      extra_mounts: true
+
+  filesystem:
+    read_only_rootfs: true
+    required_paths:
+      outbox: /workspace/.gb/outbox
+      cycles: /workspace/.gb/cycles
+
+  boundary:
+    sandbox_to_host_export_root: /workspace/.gb/outbox
+    direct_network: denied
+    host_control_surfaces:
+      docker_socket: denied
+      host_filesystem: denied
+      dashboard_sinks: denied
+      snapshot_sinks: denied
+      log_sinks: denied
+
+  security:
+    privileged: false
+    allow_privilege_escalation: false
+    cap_drop:
+      - ALL
+    cap_add: []
+    devices: []
+    security_options:
+      - no-new-privileges:true
+      - seccomp=default
+    host_namespaces:
+      pid: false
+      ipc: false
+      network: false
+
+  resources:
+    cpus: 1.0
+    memory: 512MiB
+    memory_swap: 512MiB
+    pids_limit: 128
+    oom_kill_disable: false
+
+  lifecycle:
+    entrypoint:
+      - /usr/bin/tini
+      - --
+    command:
+      - sleep
+      - infinity
+    stop_signal: SIGTERM
+    stop_grace_period_seconds: 10
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import os,sys; ok=os.getuid() != 0 and os.path.isdir('/workspace/.gb/outbox') and os.path.isdir('/workspace/.gb/cycles'); sys.exit(0 if ok else 1)
+      interval_seconds: 30
+      timeout_seconds: 5
+      retries: 3
+
+  policy_assertions:
+    must_run_as_non_root: true
+    must_disable_network: true
+    must_publish_zero_ports: true
+    must_drop_all_capabilities: true
+    must_use_explicit_resource_limits: true
+    must_keep_one_container_per_glassbox: true

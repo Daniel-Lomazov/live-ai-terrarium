@@ -1,0 +1,237 @@
+apiVersion: live-ai-terrarium/v1alpha1
+kind: GlassBoxCommandCatalog
+metadata:
+  name: glassbox-command-catalog-v1
+  plan: 20260426-live-ai-terrarium-v1
+  task: LAT-007
+spec:
+  execution:
+    catalog_lookup: id_only
+    argv_only: true
+    allow_shell: false
+    require_exact_executable_path: true
+    require_foreground_exit: true
+    default_timeout_seconds: 30
+    default_output:
+      stdout_max_kib: 256
+      stderr_max_kib: 128
+    cwd:
+      default: /workspace
+      allowed_roots:
+        - /workspace
+    environment:
+      inherit: false
+      allowlist:
+        - LANG
+        - LC_ALL
+        - PYTHONDONTWRITEBYTECODE
+        - PYTHONUNBUFFERED
+        - GB_RUN_ID
+        - GB_CYCLE_ID
+    writes:
+      default: deny
+      allowed_roots:
+        - /workspace
+        - /workspace/.gb/outbox
+        - /workspace/.gb/cycles
+
+  deny:
+    arbitrary_shell: true
+    direct_network_tools: true
+    docker_or_system_control: true
+    daemons: true
+    dynamic_download_tools: true
+    executable_names:
+      - sh
+      - bash
+      - dash
+      - ash
+      - zsh
+      - fish
+      - cmd
+      - powershell
+      - pwsh
+      - curl
+      - wget
+      - aria2c
+      - ftp
+      - sftp
+      - scp
+      - ssh
+      - nc
+      - ncat
+      - netcat
+      - socat
+      - telnet
+      - ping
+      - nslookup
+      - dig
+      - docker
+      - docker-compose
+      - podman
+      - kubectl
+      - nerdctl
+      - systemctl
+      - service
+      - init
+      - nohup
+      - setsid
+      - screen
+      - tmux
+      - supervisord
+      - cron
+      - crond
+      - pip
+      - pip3
+      - uv
+      - npm
+      - npx
+      - pnpm
+      - yarn
+      - poetry
+    argv_fragments:
+      - ';'
+      - '&&'
+      - '||'
+      - '|'
+      - '>'
+      - '>>'
+      - '<'
+      - '&'
+      - '`'
+      - '$('
+    subcommands:
+      - exec: /usr/local/bin/python
+        argv_prefix:
+          - -m
+          - pip
+      - exec: /usr/bin/git
+        argv_prefix:
+          - clone
+      - exec: /usr/bin/git
+        argv_prefix:
+          - fetch
+      - exec: /usr/bin/git
+        argv_prefix:
+          - pull
+      - exec: /usr/bin/git
+        argv_prefix:
+          - push
+      - exec: /usr/bin/git
+        argv_prefix:
+          - remote
+
+  catalog:
+    - id: fs.list_tree
+      category: inspection
+      description: Enumerate files and directories inside the sandbox workspace.
+      exec: /usr/bin/find
+      argv:
+        - '{{path}}'
+        - -maxdepth
+        - '{{max_depth}}'
+        - -mindepth
+        - '0'
+        - -printf
+        - '%P\t%y\n'
+      parameters:
+        path:
+          type: path
+          default: /workspace
+          must_be_within:
+            - /workspace
+        max_depth:
+          type: integer
+          default: 4
+          minimum: 0
+          maximum: 8
+      cwd: /workspace
+      timeout_seconds: 5
+      output:
+        stdout_max_kib: 128
+        stderr_max_kib: 32
+      writes: none
+
+    - id: fs.read_text
+      category: inspection
+      description: Read a UTF-8 text file from the sandbox workspace without shell expansion.
+      exec: /bin/cat
+      argv:
+        - '{{path}}'
+      parameters:
+        path:
+          type: file_path
+          must_be_within:
+            - /workspace
+      cwd: /workspace
+      timeout_seconds: 5
+      output:
+        stdout_max_kib: 64
+        stderr_max_kib: 16
+      writes: none
+
+    - id: git.status_short
+      category: vcs-inspection
+      description: Show concise worktree status for the in-sandbox git repository.
+      exec: /usr/bin/git
+      argv:
+        - status
+        - --short
+        - --branch
+      cwd: /workspace
+      timeout_seconds: 10
+      output:
+        stdout_max_kib: 64
+        stderr_max_kib: 32
+      writes: none
+
+    - id: git.diff_worktree
+      category: vcs-inspection
+      description: Show the current worktree diff without invoking external diff tools.
+      exec: /usr/bin/git
+      argv:
+        - diff
+        - --minimal
+        - --no-ext-diff
+      cwd: /workspace
+      timeout_seconds: 15
+      output:
+        stdout_max_kib: 512
+        stderr_max_kib: 64
+      writes: none
+
+    - id: git.rev_parse_head
+      category: vcs-inspection
+      description: Resolve the current HEAD commit for cycle metadata.
+      exec: /usr/bin/git
+      argv:
+        - rev-parse
+        - HEAD
+      cwd: /workspace
+      timeout_seconds: 5
+      output:
+        stdout_max_kib: 8
+        stderr_max_kib: 16
+      writes: none
+
+    - id: python.pytest
+      category: test
+      description: Run the sanctioned pytest entrypoint against a workspace-local target.
+      exec: /usr/local/bin/python
+      argv:
+        - -m
+        - pytest
+        - -q
+        - '{{target}}'
+      parameters:
+        target:
+          type: path
+          default: .
+          must_be_within:
+            - /workspace
+      cwd: /workspace
+      timeout_seconds: 120
+      output:
+        stdout_max_kib: 512
+        stderr_max_kib: 256
+      writes: workspace_only

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "live-ai-terrarium"
+version = "0.1.0"
+description = "Local-first v1 scaffold for Live AI Terrarium."
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.11,<3",
+]
+
+[project.optional-dependencies]
+api = [
+    "fastapi>=0.115,<1",
+]
+cli = [
+    "typer>=0.16,<1",
+    "rich>=14,<15",
+]
+dashboard = [
+    "streamlit>=1.44,<2",
+]
+test = [
+    "pytest>=8.3,<9",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["live_ai_terrarium*"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+minversion = "8.0"
+testpaths = ["tests"]
