@@ -37,12 +37,14 @@ def render_dashboard(
     scope: CommandScope,
     selected_cycle_id: str | None = None,
     streamlit_module: StreamlitLike | None = None,
+    configure_page: bool = True,
 ) -> DashboardState:
     st = _require_streamlit(streamlit_module)
     controller = DashboardController(backend)
     state = controller.load(scope=scope, selected_cycle_id=selected_cycle_id)
 
-    st.set_page_config(page_title="Live AI Terrarium", layout="wide")
+    if configure_page:
+        st.set_page_config(page_title="Live AI Terrarium", layout="wide")
     st.title("Live AI Terrarium")
     st.caption("Read-first dashboard over the shared query and command backend.")
     _render_sidebar(st, state)

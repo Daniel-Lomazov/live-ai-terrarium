@@ -3,128 +3,170 @@
 ## Status
 
 - Audience: developers
-- Basis: completed questionnaire in `.github/live_ai_terrarium_questionnaire_working_file_v_1_0.md`
-- Purpose: implementation handoff for the selected v1 architecture only
+- Basis: questionnaire-derived v1 contract plus the current implementation in `src/live_ai_terrarium/`
+- Purpose: describe the actual module boundaries and the shared read-path and command-path rules implemented today
 
 ## V1 Goal
 
-v1 proves that a single Glass-Box can run 10 stable cycles without unrecoverable failure while preserving full observability, reproducibility, and rollback.
+v1 proves that a single Glass-Box can complete 10 stable cycles without unrecoverable failure while preserving full observability, reproducibility, and manual rollback.
 
-The system is observation-first and safety-first. It records and evaluates by default; it does not start as an autonomous unrestricted agent runtime.
+The current implementation is observation-first and safety-first. Read models and evidence come first; control is explicitly unlocked and audit-tracked rather than assumed.
 
-## Selected V1 Architecture
+## Code-Grounded Architecture Summary
 
-| Area | Selected v1 decision | Implementation consequence |
+| Module slice | Current responsibility | Notes |
 | --- | --- | --- |
-| Isolation unit | Docker container per Glass-Box instance | Each sandbox has its own lifecycle-managed container runtime. |
-| Boundary | Hard boundary: no host access and no shared mounts except a controlled export directory | Sandbox-host interaction must go through explicit control and export paths only. |
-| Boundary crossings | Logs, metrics, and diffs via controlled API; artifacts via append-only export channel | Do not rely on direct host reads or writes from inside the sandbox. |
-| Default mode | Observation-only | The first implementation must bias toward visibility and auditability rather than intervention. |
-| Mode switching | Explicit API command plus dashboard toggle | Dashboard and CLI actions must call the same backend command path. |
-| Networking | No internet inside Glass-Box; model API via external gateway only | No outbound internet or credentials inside the sandbox. |
-| Tooling | Typed tool API plus validated command specs; limited allowlisted shell | Sandbox tooling must be explicit, auditable, and narrow. |
-| Observability | Per-cycle records plus aggregated summaries with drill-down | Store detailed cycle records first, then render dashboards from that source of truth. |
-| Reversibility | Per-cycle file snapshots, periodic full filesystem snapshots, and sandbox Git mirrored externally | Accepted and failing states must be reconstructable and branchable. |
-| Evaluation | Rule-based gates plus Pareto comparison of valid candidates | Acceptance is gate-first; comparison is secondary. |
-| Human control | Dashboard controls, CLI or `gb` commands, and API endpoints | All operator surfaces share one control contract. |
-| First milestone | 10 stable cycles with full logs and rollback; dashboard shows diff, score, and decision per cycle | The first release is a proof loop, not a scale or autonomy release. |
+| `contracts/` | ID grammar and canonical record types | Freezes the storage and observability schema shared across services. |
+| `storage/paths.py` | Host-controlled roots and durable path layout | Pins `%LOCALAPPDATA%/LiveAITerrarium/state` and `%LOCALAPPDATA%/LiveAITerrarium/backups`. |
+| `storage/run_evidence.py` | Run-start manifest and cycle-to-audit linkage | Proof-grade evidence fails closed when manifest or linkage is missing. |
+| `storage/log_capture.py` | Brokered full-log capture | Writes append-only run log bundles on the host side. |
+| `storage/exports.py` | Append-only outbox export writer | Accepts only `/workspace/.gb/outbox/...` targets and denies rewrite. |
+| `audit/ledger.py` | Run-scoped hash-chained audit log | Audit chain is the authoritative source for command receipts. |
+| `control/commands.py` | Canonical action names and command envelope | Freezes `observe`, `mode switch`, `pause`, `resume`, `branch`, `clone`, `reset`, and `rollback`. |
+| `control/dispatcher.py` | Shared allow-or-deny gate and idempotency handling | Control actions fail closed without an active mode-switch receipt for the same scope and mode context. |
+| `control/approval.py` | Approval records and active mode-switch receipt issuance | `mode switch` is the implemented approval-gated action today. |
+| `orchestrator/boundary.py` | Sandbox boundary policy | Freezes one workspace mount, one outbox path, and no direct host access. |
+| `orchestrator/runtime.py` | Runtime registration and lifecycle state | Current runtime state is tracked in memory and validated against the hardened v1 profile. |
+| `orchestrator/service.py` | Host orchestrator facade | Composes dispatcher, approvals, audit, runtime actions, export writer, and host hooks. |
+| `gateway/service.py` | Host model gateway binding | Keeps credentials and allowed-model policy outside the sandbox. |
+| `recovery/recovery.py` | Evidence-first recovery workflows | Implements branch-and-continue, manual rollback, and kill-and-restore. |
+| `query/read_models.py` and `query/service.py` | Shared read model for every operator surface | Surfaces consume the same run summary and cycle detail projections. |
+| `adapters/api/` | FastAPI read and command routes | HTTP API is a thin adapter over the shared backends. |
+| `adapters/cli/` | `gb` CLI and Rich TUI | CLI and TUI share the same CLI backend and command envelope. |
+| `adapters/dashboard/` | Dashboard state builder and Streamlit renderer | Dashboard renders backend-owned availability, receipts, and evidence refs. |
 
-## Roles And Boundaries
+## Shared Read Path
 
-| Role | Responsibility | Boundary expectation |
-| --- | --- | --- |
-| Orchestrator | Owns project, Glass-Box, experiment, run, cycle, and mutation lifecycle | Outside sandbox control boundary |
-| Model Gateway | Mediates model access with rate limits and per-run scoping | Outside sandbox; holds credentials and network reach |
-| Inner Agent | Operates on sandbox-local files, tests, and approved tools | Inside sandbox only |
-| Evaluator | Applies safety gates, regression checks, and candidate comparison | Separate logical role from Inner Agent |
-| Dashboard | Presents Streamlit and CLI or rich TUI views over shared records | Reads and controls through shared API |
-| Observer/Annotator | Adds interpretation or annotation without overriding core gates | Optional light role in v1, but still separate |
+`observe` is not a write command in the implementation. It always stays on the shared read path.
 
-Strict logical separation is required even if the first implementation shares a process or model across roles.
+### Read-path rule
 
-## Non-Negotiable Constraints
+- API reads use `GET /api/observe/runs/...` and `GET /api/observe/runs/.../cycles/{cycle_id}`.
+- CLI and Rich TUI use `GbCli.observe()`.
+- Streamlit uses `DashboardController.load()` and `render_dashboard()`.
+- Every surface ultimately consumes `RunSummaryView` and `CycleDetailView` produced by `QueryService`.
 
-- No host filesystem access from the sandbox.
-- No secrets in the sandbox.
-- No direct internet from the sandbox; model access is gateway-mediated only.
-- Runtime hardening uses non-root execution, blocked egress, seccomp or apparmor, filesystem ACLs, and immutable mounts around host-facing surfaces.
-- The Inner Agent cannot control Docker or host system state, edit dashboard or snapshot or log sinks, run background daemons, or download code dynamically.
-- Stop conditions include repeated crashes, syntax failure, score drop, forbidden action attempt, resource overuse, and log silence.
-- Audit logs must be append-only, externally controlled, and hash-chained for tamper evidence.
-- Storage truth is host-controlled and mirrored externally; local sandbox state is not the authority.
+### What the query layer owns
 
-## Canonical Records
+`QueryService` derives the operator-facing state from canonical records and evidence:
 
-Each cycle record is the observability source of truth and must capture at minimum:
+- `current_mode`
+- `lifecycle_state`
+- `observation_mode_state`
+- `active_mode_switch_receipt`
+- `available_actions`
+- `deny_reason_by_action`
+- `approval_status`
+- `incident_state`
+- `last_stable_cycle`
+- `rollback_target`
+- snapshot refs, branch refs, full-log refs, and reproducibility manifest summary
 
-- task
-- diff
-- score
-- test result
-- errors
-- model identity
-- prompt reference
-- token usage
-- latency
-- CPU, RAM, and disk usage
+This is the implemented rule that keeps Streamlit, CLI or TUI, and the API on one read model instead of local UI heuristics.
 
-The broader retained dataset for v1 also includes logs, prompts, diffs, metrics, snapshots, model outputs, model errors, resource traces, and annotations.
+## Shared Command Path
 
-## Identity And Experiment Model
+Every control submission uses the same canonical action vocabulary and the same `CommandEnvelope` shape, regardless of surface.
 
-- Conceptual hierarchy: Project -> Glass-Box -> Experiment -> Run -> Cycle -> Mutation.
-- Identity format: structured readable IDs plus internal UUIDs with human labels.
-- Naming should combine project identity, Glass-Box identity, role, and agent identity, with experiment or run scope attached as metadata or suffix where useful.
-- Comparisons across runs must keep tasks, seeds, and limits aligned and normalize metrics across models.
+### Command-path rule
 
-## Milestone 1 Contract
+- API command routes convert HTTP payloads into `CommandEnvelope` values.
+- CLI and Rich TUI submit the same command envelope through `GbCli.submit_action()`.
+- Streamlit uses `DashboardController.perform_action()` to build the same command shape.
+- `CommandDispatcher` is the single allow-or-deny gate.
+- `ApprovalService` records request, approval, start, completion, and failure events into the hash-chained audit ledger.
+- `HostOrchestratorService.execute_command()` composes dispatch, approval, audit, and runtime application for the host lifecycle actions it currently owns.
 
-### Scope
+### Unlock rule
 
-- Single inner agent
-- Single sandbox
-- No direct network
-- Simple tests
+- `observe` is always available.
+- `mode switch` is requestable from observation-only mode.
+- `pause`, `resume`, `branch`, `clone`, `reset`, and `rollback` are denied until an active `ModeSwitchReceipt` exists for the same run scope and the same `mode_context`.
+- Historical receipts, stale scope receipts, and mismatched mode contexts do not unlock control.
 
-### Success Definition
+### What the orchestrator command executor currently handles
 
-- 10 stable cycles complete.
-- Zero unrecoverable failures occur.
-- Full logs are preserved.
-- Rollback works from the last stable state.
-- The dashboard exposes diff, score, and decision for each cycle.
-- Every accepted cycle is inspectable, explainable, restorable, and reproducible.
+The concrete host-side command executor currently applies these lifecycle actions directly:
 
-## Acceptance Criteria
+- `mode switch`
+- `pause`
+- `resume`
+- `clone`
+- `reset`
+- `rollback`
 
-1. The runtime uses one Docker-contained Glass-Box with a hard boundary, no direct host access, and no direct sandbox internet access.
-2. The only model path is a centralized external gateway with per-run scoping, and the sandbox contains no secrets.
-3. Each cycle emits a canonical record containing task, diff, score, test result, errors, model, prompt reference, token usage, latency, and CPU or RAM or disk usage.
-4. Dashboard and CLI views operate on the same underlying observability records and the same control API.
-5. Acceptance remains deterministic: a cycle is kept only if required gates pass and no regression is detected.
-6. Failure handling preserves evidence first through pause and snapshot, then branches or rolls back or restores according to severity.
-7. Reversibility includes per-cycle file snapshots, periodic full snapshots, and sandbox Git mirrored externally.
-8. The milestone proof completes 10 stable cycles with zero unrecoverable failures and a visible per-cycle diff, score, and decision trail.
+`restore` exists as an internal runtime lifecycle operation used by recovery, but it is not part of the canonical operator action list.
 
-## Out Of Scope For V1
+`branch` remains part of the shared command contract and surface parity tests, but the implemented proof-grade branch-and-continue behavior currently lives in `RecoveryController.branch_and_continue()` rather than in `HostOrchestratorService.execute_command()`.
 
-- Multiple agents or complex multi-agent orchestration
-- Complex tasks beyond the simple first test suite
-- Direct sandbox internet access or domain allowlists
-- Secrets or credential handling inside the sandbox
-- Automated rollback as the trust anchor
-- Weighted-score or learned-evaluator acceptance as the trust anchor
-- Real-time event streaming as the primary observability contract
-- Chat-based operator control as a required interface
-- Database, blob store, or object store as a required first storage layer
+```mermaid
+flowchart LR
+	API[API routes]
+	CLI[gb CLI and Rich TUI]
+	DASH[Streamlit dashboard]
+	READ[Shared read path]
+	CMD[Shared command path]
+	QUERY[QueryService]
+	DATA[Run and cycle records plus audit plus evidence plus incidents]
+	DISP[CommandDispatcher]
+	APPROVAL[ApprovalService and AuditLedger]
+	ORCH[HostOrchestratorService]
+	RUNTIME[InMemoryOrchestratorRuntime]
+	RECOVERY[RecoveryController]
+	SNAP[SnapshotService]
 
-## Implementation Order
+	API --> READ
+	CLI --> READ
+	DASH --> READ
+	READ --> QUERY
+	QUERY --> DATA
 
-1. Build the sandbox boundary and hardened container runtime first.
-2. Establish the shared control API, stop conditions, and manual rollback path.
-3. Implement canonical per-cycle records, external logging, snapshots, and Git mirroring.
-4. Add the Model Gateway contract and the validated tool interface for the Inner Agent.
-5. Implement evaluator gates and deterministic acceptance logic.
-6. Layer Streamlit and CLI views on top of the shared records and control API.
+	API --> CMD
+	CLI --> CMD
+	DASH --> CMD
+	CMD --> DISP
+	DISP --> APPROVAL
+	DISP --> ORCH
+	ORCH --> RUNTIME
+	RECOVERY --> ORCH
+	RECOVERY --> SNAP
+```
 
-This order stays within the questionnaire-defined v1 contract and avoids building scale or autonomy features before the safety and observability core exists.
+## Runtime And Boundary Rules
+
+- The sandbox boundary is fixed to one workspace mount target, `/workspace`.
+- The only sanctioned sandbox-to-host artifact egress root is `/workspace/.gb/outbox`.
+- Runtime registration requires `network_mode="none"` and zero published ports.
+- No direct host path access is allowed to the state root or backup root.
+- No secrets are kept inside the sandbox; the host model gateway carries `credential_handle` and allowed-model policy per run.
+
+These rules are implemented in `orchestrator/boundary.py`, `orchestrator/runtime.py`, `storage/paths.py`, `storage/exports.py`, and `gateway/service.py`.
+
+## Recovery And Evidence Path
+
+The evidence-first recovery owner is `RecoveryController`, not the surface adapters.
+
+- `branch_and_continue()` executes `pause -> snapshot -> branch-and-continue -> report` and writes branch evidence into the host mirror tree with `outer_repo_branch_created=false`.
+- `manual_rollback()` executes `pause -> snapshot -> rollback -> report`, restores the last accepted cycle snapshot into the workspace, and records the rollback target in the incident bundle.
+- `kill_and_restore()` executes `pause -> snapshot -> kill/restore -> report` using a full snapshot manifest.
+- `RunEvidenceStore` and `LogCaptureBroker` provide the manifest, cycle-to-audit linkage, and full-log bundle refs consumed by `QueryService` and the proof harness.
+
+## Surface Parity Rule
+
+`tests/e2e/test_surface_parity.py` is the executable check for the architecture rule that all human-facing surfaces must project the same control vocabulary and the same backend-owned availability state.
+
+In the current implementation that means:
+
+- the same canonical action names,
+- the same blocked-versus-available action set,
+- the same deny reasons when control is locked,
+- the same receipt timeline semantics, and
+- the same read-model fields for diff, score, decision, rollback target, and evidence refs.
+
+## Current Limits
+
+- Runtime sessions are currently tracked in memory by `InMemoryOrchestratorRuntime`.
+- The shared command contract is broader than the base orchestrator executor: `branch` is modeled across surfaces, but the implemented branch-and-continue procedure lives in the recovery controller.
+- The surfaces are intentionally thin. They should not infer approval state, compute action availability locally, or reimplement recovery logic.
+
+That combination matches the frozen v1 system, data, ops, and control-state contracts without claiming behavior that is not yet implemented.
