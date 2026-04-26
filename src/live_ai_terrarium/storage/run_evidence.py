@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from live_ai_terrarium.audit.ledger import AuditLedger, AuditLedgerIntegrityError
+from live_ai_terrarium.control.commands import CommandScope
 from live_ai_terrarium.contracts.records import (
     ArtifactRef,
     GIT_SHA_PATTERN,
@@ -121,9 +123,15 @@ class ProofConsumerEvidence(RunEvidenceModel):
 
 
 class RunEvidenceStore:
-    def __init__(self, storage_paths: StoragePaths, filesystem: HostFilesystem | None = None) -> None:
+    def __init__(
+        self,
+        storage_paths: StoragePaths,
+        filesystem: HostFilesystem | None = None,
+        audit_ledger: AuditLedger | None = None,
+    ) -> None:
         self._storage_paths = storage_paths
         self._filesystem = filesystem or HostFilesystem(storage_paths)
+        self._audit_ledger = audit_ledger or AuditLedger(storage_paths)
 
     def create_run_manifest(
         self,
@@ -202,6 +210,7 @@ class RunEvidenceStore:
     def lookup_cycle_proof_evidence(self, cycle: CycleScope) -> ProofConsumerEvidence:
         manifest = self.read_run_manifest(cycle.run)
         cycle_link = self.read_cycle_link(cycle)
+        self._resolve_verified_audit_refs(cycle.run, cycle_link.audit_event_refs)
         bundle_path = Path(cycle_link.full_log_bundle_ref.locator)
         if not bundle_path.exists():
             raise EvidenceLookupError(f"Missing full-log bundle: {bundle_path}")
@@ -233,6 +242,31 @@ class RunEvidenceStore:
         if isinstance(limits, RunLimits):
             return limits
         return RunLimits(values=limits)
+
+    def _resolve_verified_audit_refs(
+        self,
+        run: RunScope,
+        audit_event_refs: list[ArtifactRef],
+    ) -> None:
+        scope = CommandScope(
+            project_id=run.project_id,
+            glass_box_id=run.glassbox_id,
+            experiment_id=run.experiment_id,
+            run_id=run.run_id,
+        )
+        try:
+            verified_entries = self._audit_ledger.verify_run_chain(scope)
+        except AuditLedgerIntegrityError as error:
+            raise EvidenceLookupError(f"audit chain verification failed: {error}") from error
+
+        canonical_locator = self._audit_ledger.ledger_path_for_scope(scope).resolve(strict=False)
+        verified_event_ids = {entry.event_id for entry in verified_entries}
+        for ref in audit_event_refs:
+            locator = Path(ref.locator).resolve(strict=False)
+            if locator != canonical_locator or ref.uuid not in verified_event_ids:
+                raise EvidenceLookupError(
+                    f"audit ref could not be resolved against the canonical audit ledger: {ref.locator}"
+                )
 
 
 __all__ = [

@@ -5,6 +5,8 @@ from uuid import uuid4
 
 import pytest
 
+from live_ai_terrarium.audit.ledger import AuditEvent, AuditLedger
+from live_ai_terrarium.control.commands import CommandEnvelope, CommandScope
 from live_ai_terrarium.contracts.records import ArtifactRef, HashOrSnapshot
 from live_ai_terrarium.storage.log_capture import LogCaptureBroker, LogEntryInput
 from live_ai_terrarium.storage.paths import CycleScope, RunScope, StoragePaths
@@ -35,6 +37,49 @@ def make_hash_snapshot(seed: str) -> HashOrSnapshot:
 
 def make_audit_ref(name: str) -> ArtifactRef:
     return ArtifactRef(uuid=uuid4(), locator=f"audit/{name}.json")
+
+
+def make_command_scope(run: RunScope) -> CommandScope:
+    return CommandScope(
+        project_id=run.project_id,
+        glass_box_id=run.glassbox_id,
+        experiment_id=run.experiment_id,
+        run_id=run.run_id,
+    )
+
+
+def append_audit_refs(storage: StoragePaths, run: RunScope, *, cycle_id: str) -> list[ArtifactRef]:
+    ledger = AuditLedger(storage)
+    scope = make_command_scope(run)
+    command = CommandEnvelope(action="pause", scope=scope, idempotency_key="pause-once", surface="cli")
+    requested = ledger.append(
+        AuditEvent(
+            command_id=command.command_id,
+            action=command.action,
+            event_type="command.requested",
+            occurred_at="2026-04-26T10:00:00Z",
+            actor_id="operator-local",
+            actor_role="operator",
+            scope=scope,
+        )
+    )
+    started = ledger.append(
+        AuditEvent(
+            command_id=command.command_id,
+            action=command.action,
+            event_type="command.started",
+            occurred_at="2026-04-26T10:00:01Z",
+            actor_id="operator-local",
+            actor_role="operator",
+            scope=scope,
+            cycle_id=cycle_id,
+        )
+    )
+    ledger_locator = str(ledger.ledger_path_for_scope(scope))
+    return [
+        ArtifactRef(uuid=requested.event_id, locator=ledger_locator),
+        ArtifactRef(uuid=started.event_id, locator=ledger_locator),
+    ]
 
 
 def test_manifest_must_exist_before_cycle_one_linkage_and_is_immutable(tmp_path) -> None:
@@ -193,7 +238,7 @@ def test_log_capture_appends_brokered_entries_without_overwriting_history(tmp_pa
 
 
 def test_cycle_to_audit_linkage_resolves_audit_and_log_bundle_refs(tmp_path) -> None:
-    _, evidence, log_capture = make_store(tmp_path)
+    storage, evidence, log_capture = make_store(tmp_path)
     run_scope = make_run_scope()
     cycle_scope = make_cycle_scope(run_scope)
 
@@ -221,7 +266,7 @@ def test_cycle_to_audit_linkage_resolves_audit_and_log_bundle_refs(tmp_path) -> 
             )
         ],
     )
-    audit_refs = [make_audit_ref("requested"), make_audit_ref("started")]
+    audit_refs = append_audit_refs(storage, run_scope, cycle_id=cycle_scope.cycle_id)
 
     linked = evidence.link_cycle_to_audit(
         cycle_scope,
@@ -242,8 +287,98 @@ def test_cycle_to_audit_linkage_resolves_audit_and_log_bundle_refs(tmp_path) -> 
     assert proof_inputs.audit_event_refs == audit_refs
 
 
-def test_proof_consumer_lookups_fail_closed_for_missing_evidence(tmp_path) -> None:
+def test_proof_consumer_lookup_fails_closed_when_audit_chain_is_tampered(tmp_path) -> None:
+    storage, evidence, log_capture = make_store(tmp_path)
+    run_scope = make_run_scope()
+    cycle_scope = make_cycle_scope(run_scope)
+
+    evidence.create_run_manifest(
+        run_scope,
+        created_at="2026-04-26T09:59:59Z",
+        task_identity="LAT-025",
+        seed=14,
+        limits={"max_cycles": 10},
+        model_version="gpt-5.4",
+        outer_repo_commit_sha="2" * 40,
+        container_image_digest="sha256:" + ("3" * 64),
+        runtime_profile=make_hash_snapshot("4"),
+        command_catalog=make_hash_snapshot("5"),
+    )
+    receipt = log_capture.append_entries(
+        run_scope,
+        entries=[
+            LogEntryInput(
+                occurred_at="2026-04-26T10:00:00Z",
+                broker_name="orchestrator",
+                stream="stdout",
+                message="cycle log",
+                cycle_id=cycle_scope.cycle_id,
+            )
+        ],
+    )
+    audit_refs = append_audit_refs(storage, run_scope, cycle_id=cycle_scope.cycle_id)
+
+    evidence.link_cycle_to_audit(
+        cycle_scope,
+        audit_event_refs=audit_refs,
+        full_log_bundle_ref=receipt.bundle_ref,
+        log_sequence_start=receipt.first_sequence,
+        log_sequence_end=receipt.last_sequence,
+    )
+
+    ledger_path = AuditLedger(storage).ledger_path_for_scope(make_command_scope(run_scope))
+    tampered = [json.loads(line) for line in ledger_path.read_text(encoding="utf-8").splitlines()]
+    tampered[0]["actor_role"] = "tampered"
+    ledger_path.write_text("\n".join(json.dumps(entry, sort_keys=True) for entry in tampered) + "\n", encoding="utf-8")
+
+    with pytest.raises(EvidenceLookupError, match="audit chain"):
+        evidence.lookup_cycle_proof_evidence(cycle_scope)
+
+
+def test_proof_consumer_lookup_fails_closed_when_audit_ref_does_not_resolve(tmp_path) -> None:
     _, evidence, log_capture = make_store(tmp_path)
+    run_scope = make_run_scope()
+    cycle_scope = make_cycle_scope(run_scope)
+
+    evidence.create_run_manifest(
+        run_scope,
+        created_at="2026-04-26T09:59:59Z",
+        task_identity="LAT-025",
+        seed=15,
+        limits={"max_cycles": 10},
+        model_version="gpt-5.4",
+        outer_repo_commit_sha="3" * 40,
+        container_image_digest="sha256:" + ("4" * 64),
+        runtime_profile=make_hash_snapshot("5"),
+        command_catalog=make_hash_snapshot("6"),
+    )
+    receipt = log_capture.append_entries(
+        run_scope,
+        entries=[
+            LogEntryInput(
+                occurred_at="2026-04-26T10:00:00Z",
+                broker_name="orchestrator",
+                stream="stdout",
+                message="cycle log",
+                cycle_id=cycle_scope.cycle_id,
+            )
+        ],
+    )
+
+    evidence.link_cycle_to_audit(
+        cycle_scope,
+        audit_event_refs=[make_audit_ref("unresolved")],
+        full_log_bundle_ref=receipt.bundle_ref,
+        log_sequence_start=receipt.first_sequence,
+        log_sequence_end=receipt.last_sequence,
+    )
+
+    with pytest.raises(EvidenceLookupError, match="audit ref"):
+        evidence.lookup_cycle_proof_evidence(cycle_scope)
+
+
+def test_proof_consumer_lookups_fail_closed_for_missing_evidence(tmp_path) -> None:
+    storage, evidence, log_capture = make_store(tmp_path)
     run_scope = make_run_scope()
     cycle_scope = make_cycle_scope(run_scope)
 
@@ -280,7 +415,7 @@ def test_proof_consumer_lookups_fail_closed_for_missing_evidence(tmp_path) -> No
     )
     evidence.link_cycle_to_audit(
         cycle_scope,
-        audit_event_refs=[make_audit_ref("requested")],
+        audit_event_refs=append_audit_refs(storage, run_scope, cycle_id=cycle_scope.cycle_id),
         full_log_bundle_ref=receipt.bundle_ref,
         log_sequence_start=receipt.first_sequence,
         log_sequence_end=receipt.last_sequence,
