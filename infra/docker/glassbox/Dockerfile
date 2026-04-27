@@ -1,3 +1,9 @@
+# Build from the repository root with:
+#   docker build -f infra/docker/glassbox/Dockerfile -t live-ai-terrarium-glassbox:v1 .
+#
+# This image is an inert sandbox baseline, not an application server. Run it with
+# `--network none` and mount a workspace that already contains `.gb/outbox` and
+# `.gb/cycles`, or let the host orchestrator create the workspace volume for you.
 FROM python:3.12-slim-bookworm
 
 LABEL org.opencontainers.image.title="live-ai-terrarium-glassbox" \

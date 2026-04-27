@@ -6,7 +6,15 @@ The outer repository follows the validated plan in `docs/plan/20260426-live-ai-t
 
 ## [Unreleased]
 
-No unreleased changes.
+### Added
+
+- `docs/README.md` as a documentation entry point for new users.
+
+### Changed
+
+- Expanded `README.md` into a more explicit getting-started guide with Docker, preview, validation, and document-map paths.
+- Added a concrete Docker and preview quick-start section to `docs/operators/v1-runbook.md`.
+- Added direct Docker build and sanity-check guidance to `infra/docker/glassbox/Dockerfile` and `docs/runtime/sandbox-runtime-contract.md`.
 
 ## [1.0.1] - 2026-04-27
 

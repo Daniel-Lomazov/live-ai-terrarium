@@ -10,6 +10,35 @@
 
 This document is limited to the implemented host-side runtime slice: run registration, sandbox boundary checks, brokered log capture, append-only outbox export, host-controlled storage roots, and the outside-the-sandbox model gateway binding. It does not claim a persistent Docker supervisor beyond the invariants enforced by the current modules.
 
+## Using The Dockerfile Directly
+
+The sandbox baseline image recipe is `infra/docker/glassbox/Dockerfile`.
+
+Build it from the repository root with:
+
+```powershell
+docker build -f infra/docker/glassbox/Dockerfile -t live-ai-terrarium-glassbox:v1 .
+```
+
+This image is intentionally inert. Its default command is `sleep infinity`, which means it exists to provide a hardened runtime baseline rather than to start the API, dashboard, or proof loop by itself.
+
+To sanity-check the image manually, prepare a workspace mount that already includes the sanctioned runtime directories:
+
+```powershell
+New-Item -ItemType Directory -Force .sandbox-workspace/.gb/outbox, .sandbox-workspace/.gb/cycles | Out-Null
+$workspace = Join-Path (Get-Location) ".sandbox-workspace"
+docker run --rm --network none --mount "type=bind,source=$workspace,target=/workspace" live-ai-terrarium-glassbox:v1 python -c "import os; print({'uid': os.getuid(), 'outbox': os.path.isdir('/workspace/.gb/outbox'), 'cycles': os.path.isdir('/workspace/.gb/cycles')})"
+```
+
+That manual check should confirm the same baseline assumptions enforced by the host runtime:
+
+- the container runs as a non-root user
+- the shared workspace mount target is `/workspace`
+- `/workspace/.gb/outbox` and `/workspace/.gb/cycles` are present
+- the container can be started with `--network none`
+
+When the full product stack runs, `HostOrchestratorService.register_run()` is the component that should own the pinned image digest, workspace volume, and runtime registration flow.
+
 ## Current Runtime Slice
 
 | Module | What it owns today | Contract consequence |

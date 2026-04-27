@@ -12,6 +12,51 @@ Operate observation-first.
 
 In the implemented system, `observe` is always available and every other control stays blocked until the backend holds an active mode-switch receipt for the same run scope and the same `mode_context`.
 
+## Quick Start For Operators
+
+If you are approaching the project from the operator side, start here:
+
+1. Build the Glass-Box baseline image from `infra/docker/glassbox/Dockerfile`.
+2. Verify the image starts as non-root with `--network none` and a workspace mount that includes `.gb/outbox` and `.gb/cycles`.
+3. Launch the Streamlit preview if you want to inspect the read model and recovery evidence without wiring a live orchestrator run.
+4. Use the startup sequence below only when you are working with the host orchestrator and canonical evidence paths.
+
+### Docker quick start
+
+Build the image from the repository root:
+
+```powershell
+docker build -f infra/docker/glassbox/Dockerfile -t live-ai-terrarium-glassbox:v1 .
+```
+
+Prepare a local workspace mount for a manual sanity check:
+
+```powershell
+New-Item -ItemType Directory -Force .sandbox-workspace/.gb/outbox, .sandbox-workspace/.gb/cycles | Out-Null
+$workspace = Join-Path (Get-Location) ".sandbox-workspace"
+docker run --rm --network none --mount "type=bind,source=$workspace,target=/workspace" live-ai-terrarium-glassbox:v1 python -c "import os; print({'uid': os.getuid(), 'outbox': os.path.isdir('/workspace/.gb/outbox'), 'cycles': os.path.isdir('/workspace/.gb/cycles')})"
+```
+
+Expected outcome:
+
+- the container is not running as root
+- `/workspace/.gb/outbox` exists
+- `/workspace/.gb/cycles` exists
+
+### Preview quick start
+
+If you want the fastest operator-facing UI path instead of a live runtime registration flow:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[api,cli,dashboard,test]"
+python -m streamlit run src/live_ai_terrarium/adapters/dashboard/preview_app.py --server.port 8505
+```
+
+That preview path is useful for learning the evidence model, approval flow, and rollback-facing UI before working with a real run.
+
 ## Startup Sequence
 
 Complete these steps in order before cycle 1.
